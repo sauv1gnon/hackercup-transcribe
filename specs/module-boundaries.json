@@ -1,0 +1,63 @@
+{
+  "$schema": "./schemas/module-boundaries.schema.json",
+  "version": 1,
+  "modules": [
+    {
+      "id": "domain",
+      "path": "packages/domain",
+      "kind": "library",
+      "allowedInternalDependencies": [],
+      "responsibilities": [
+        "Provider-independent values and entities",
+        "Educational and translation invariants",
+        "Warnings and review status"
+      ]
+    },
+    {
+      "id": "application",
+      "path": "packages/application",
+      "kind": "library",
+      "allowedInternalDependencies": ["domain"],
+      "responsibilities": ["Use cases", "Provider ports", "Workflow orchestration"]
+    },
+    {
+      "id": "contracts",
+      "path": "packages/contracts",
+      "kind": "library",
+      "allowedInternalDependencies": [],
+      "responsibilities": [
+        "Versioned transport schemas",
+        "Shared public request and response types"
+      ]
+    },
+    {
+      "id": "infrastructure",
+      "path": "packages/infrastructure",
+      "kind": "library",
+      "allowedInternalDependencies": ["application", "domain"],
+      "responsibilities": [
+        "External provider adapters",
+        "Validated runtime configuration",
+        "Content-safe operational logging"
+      ]
+    },
+    {
+      "id": "api",
+      "path": "apps/api",
+      "kind": "application",
+      "allowedInternalDependencies": ["application", "contracts", "domain", "infrastructure"],
+      "responsibilities": ["HTTP presentation", "Transport mapping", "Server composition root"]
+    },
+    {
+      "id": "web",
+      "path": "apps/web",
+      "kind": "application",
+      "allowedInternalDependencies": ["contracts"],
+      "responsibilities": [
+        "Teacher-facing React presentation",
+        "Ephemeral editing state",
+        "Typed API client"
+      ]
+    }
+  ]
+}

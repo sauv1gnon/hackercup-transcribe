@@ -1,0 +1,31 @@
+{
+  "$schema": "./status.schema.json",
+  "currentPhase": 0,
+  "lastUpdated": "2026-07-29",
+  "phases": {
+    "phase0": {
+      "name": "Specification and project foundation",
+      "status": "complete"
+    },
+    "phase1": {
+      "name": "Text translation foundation",
+      "status": "not_started"
+    },
+    "phase2": {
+      "name": "Educational output",
+      "status": "not_started"
+    },
+    "phase3": {
+      "name": "Image modality",
+      "status": "not_started"
+    },
+    "phase4": {
+      "name": "Trust and demonstration",
+      "status": "not_started"
+    },
+    "stretch": {
+      "name": "Optional provider and feedback extensions",
+      "status": "not_started"
+    }
+  }
+}

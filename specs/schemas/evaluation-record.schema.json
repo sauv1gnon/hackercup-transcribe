@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://salinaral.invalid/schemas/evaluation-record.schema.json",
+  "title": "SalinAral human language-evaluation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exampleId", "targetLanguage", "category", "reviewerRole", "scores", "severeErrors"],
+  "properties": {
+    "exampleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "targetLanguage": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(?:-[A-Za-z0-9]+)*$"
+    },
+    "category": {
+      "enum": [
+        "classroom_instruction",
+        "reading_passage",
+        "science_explanation",
+        "mathematics_word_problem",
+        "social_or_cultural_content"
+      ]
+    },
+    "reviewerRole": {
+      "enum": ["fluent_speaker", "native_speaker", "teacher"]
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meaningPreserved",
+        "grammarAndFluency",
+        "terminologySuitability",
+        "gradeLevelReadability",
+        "culturalNaturalness"
+      ],
+      "properties": {
+        "meaningPreserved": {
+          "$ref": "#/$defs/score"
+        },
+        "grammarAndFluency": {
+          "$ref": "#/$defs/score"
+        },
+        "terminologySuitability": {
+          "$ref": "#/$defs/score"
+        },
+        "gradeLevelReadability": {
+          "$ref": "#/$defs/score"
+        },
+        "culturalNaturalness": {
+          "$ref": "#/$defs/score"
+        }
+      }
+    },
+    "severeErrors": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "reversed_meaning",
+          "incorrect_number_or_measurement",
+          "missing_negation",
+          "invented_information",
+          "inappropriate_name_or_term_translation",
+          "unnatural_or_incomprehensible"
+        ]
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    }
+  }
+}

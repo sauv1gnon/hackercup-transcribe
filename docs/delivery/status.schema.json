@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://salinaral.invalid/schemas/delivery-status.schema.json",
+  "title": "SalinAral delivery status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["currentPhase", "lastUpdated", "phases"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "currentPhase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date"
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phase0": {
+          "$ref": "#/$defs/phase"
+        },
+        "phase1": {
+          "$ref": "#/$defs/phase"
+        },
+        "phase2": {
+          "$ref": "#/$defs/phase"
+        },
+        "phase3": {
+          "$ref": "#/$defs/phase"
+        },
+        "phase4": {
+          "$ref": "#/$defs/phase"
+        },
+        "stretch": {
+          "$ref": "#/$defs/phase"
+        }
+      },
+      "required": ["phase0", "phase1", "phase2", "phase3", "phase4", "stretch"]
+    }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": ["not_started", "in_progress", "complete", "blocked"]
+        }
+      }
+    }
+  }
+}

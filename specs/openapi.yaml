@@ -1,0 +1,810 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+
+info:
+  title: SalinAral API
+  summary: Contract for a stateless teacher lesson-localisation service.
+  description: |
+    SalinAral accepts teacher-reviewed lesson text or extracts transient text from one image.
+    Generated educational content is an AI-assisted draft and requires teacher review.
+
+    This contract describes planned MVP behavior. Phase 0 contains no route implementation.
+    Request and response bodies containing lesson content must never be persisted or logged.
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: /
+    description: Environment-specific API origin supplied by deployment configuration.
+
+tags:
+  - name: Operations
+    description: Content-free service status.
+  - name: Languages
+    description: Provider-neutral language capabilities and release maturity.
+  - name: Localisation
+    description: Translation and optional educational transformation of teacher-reviewed text.
+  - name: OCR
+    description: Transient text extraction that always requires teacher review.
+
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Get service health
+      description: |
+        Returns content-free process health. It does not call paid providers and does not reveal
+        configuration values.
+      tags:
+        - Operations
+      responses:
+        '200':
+          description: The API process is ready to accept requests.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                service: salinaral-api
+                version: 0.1.0
+                timestamp: '2026-07-29T00:00:00Z'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/languages:
+    get:
+      operationId: listLanguages
+      summary: List supported languages
+      description: |
+        Lists provider-neutral source and target capabilities. Release status reflects human
+        evaluation maturity, not provider documentation alone.
+      tags:
+        - Languages
+      responses:
+        '200':
+          description: Supported language capabilities.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguageListResponse'
+              example:
+                languages:
+                  - code: en
+                    name: English
+                    source: true
+                    target: true
+                    status: experimental
+                  - code: fil
+                    name: Filipino
+                    source: true
+                    target: true
+                    status: experimental
+                  - code: ceb
+                    name: Cebuano
+                    source: false
+                    target: true
+                    status: experimental
+                  - code: hil
+                    name: Hiligaynon
+                    source: false
+                    target: true
+                    status: experimental
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /api/v1/localisations:
+    post:
+      operationId: createLocalisation
+      summary: Localise teacher-reviewed lesson text
+      description: |
+        Produces a faithful translation and the requested educational sections. Source and output
+        content are transient, must not be logged, and remain an AI-assisted draft until reviewed.
+      tags:
+        - Localisation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocalisationRequest'
+            example:
+              sourceLanguage: en
+              targetLanguage: ceb
+              text: Plants use sunlight to produce food.
+              gradeLevel: 5
+              subject: science
+              outputs:
+                - translation
+                - simplified_explanation
+                - glossary
+                - questions
+      responses:
+        '200':
+          description: A schema-valid localization draft. Requested optional sections are present.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalisationResponse'
+              example:
+                requestId: req_01J00000000000000000000000
+                sourceText: Plants use sunlight to produce food.
+                targetLanguage: ceb
+                teachingPack:
+                  faithfulTranslation:
+                    Ang mga tanom naggamit sa kahayag sa adlaw aron makahimo og pagkaon.
+                  simplifiedExplanation:
+                    Ang tanom nagkinahanglan og kahayag sa adlaw aron makahimo sa iyang pagkaon.
+                  glossary:
+                    - sourceTerm: sunlight
+                      localisedTerm: kahayag sa adlaw
+                      explanation: Kahayag nga gikan sa adlaw.
+                  questions:
+                    - type: recall
+                      question: Unsa ang gigamit sa tanom sa paghimo og pagkaon?
+                    - type: explanation
+                      question: Ngano nga importante ang kahayag sa adlaw sa tanom?
+                    - type: application
+                      question: Unsay mahimong mahitabo sa tanom kon walay kahayag sa adlaw?
+                provenance:
+                  translation: google
+                  education: openai
+                reviewStatus: ai_generated
+                warnings: []
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '413':
+          $ref: '#/components/responses/ContentTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnprocessableRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/InvalidProviderResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/ProviderTimeout'
+
+  /api/v1/ocr/extractions:
+    post:
+      operationId: createOcrExtraction
+      summary: Extract transient text from one image
+      description: |
+        Validates and processes one JPEG, PNG, or WebP image in memory. The returned text is not
+        localized automatically; the teacher must review and correct it first.
+      tags:
+        - OCR
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OcrExtractionRequest'
+            encoding:
+              file:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          description: Transient extracted text and cues that require teacher review.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcrExtractionResponse'
+              example:
+                requestId: req_01J00000000000000000000001
+                extractedText: Plants use sunlight to produce food.
+                reviewRequired: true
+                reviewCues:
+                  - kind: scientific_term
+                    startOffset: 11
+                    endOffset: 19
+                warnings: []
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '413':
+          $ref: '#/components/responses/ContentTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/UnsafeImage'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/InvalidProviderResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '504':
+          $ref: '#/components/responses/ProviderTimeout'
+
+components:
+  headers:
+    RequestId:
+      description: Opaque request correlation identifier containing no lesson content.
+      schema:
+        $ref: '#/components/schemas/RequestId'
+
+  responses:
+    InvalidRequest:
+      description: The request syntax or fields are invalid.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:invalid-request
+            title: Invalid request
+            status: 400
+            detail: Check the submitted fields and try again.
+            requestId: req_01J00000000000000000000002
+
+    ContentTooLarge:
+      description: The request exceeds a documented text or image limit.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:content-too-large
+            title: Content too large
+            status: 413
+            detail: Reduce the submitted content and try again.
+            requestId: req_01J00000000000000000000003
+
+    UnsupportedMediaType:
+      description: The request media type is not accepted by this operation.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:unsupported-media-type
+            title: Unsupported media type
+            status: 415
+            detail: Submit the content in one of the supported formats.
+            requestId: req_01J00000000000000000000004
+
+    UnprocessableRequest:
+      description:
+        The request is valid but cannot be processed, such as an unsupported language pair.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:unsupported-language-pair
+            title: Unsupported language pair
+            status: 422
+            detail: Choose a source and target language shown as supported.
+            requestId: req_01J00000000000000000000005
+
+    UnsafeImage:
+      description: The decoded image is malformed, mismatched, or outside the safety limits.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:unsafe-image
+            title: Image cannot be processed
+            status: 422
+            detail: Use one valid JPEG, PNG, or WebP image within the documented limits.
+            requestId: req_01J00000000000000000000006
+
+    RateLimited:
+      description: The caller has exceeded the configured request or cost limit.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+        Retry-After:
+          description: Seconds until the caller should retry.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:rate-limited
+            title: Too many requests
+            status: 429
+            detail: Wait before trying again.
+            requestId: req_01J00000000000000000000007
+
+    InvalidProviderResponse:
+      description: A provider returned data that failed SalinAral validation.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:invalid-provider-response
+            title: Result could not be validated
+            status: 502
+            detail: No classroom draft was produced. Try again later.
+            requestId: req_01J00000000000000000000008
+
+    ServiceUnavailable:
+      description: The service or a required capability is temporarily unavailable.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:service-unavailable
+            title: Service unavailable
+            status: 503
+            detail: Try again later.
+            requestId: req_01J00000000000000000000009
+
+    ProviderTimeout:
+      description: A required provider did not respond within the operation deadline.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:provider-timeout
+            title: Request timed out
+            status: 504
+            detail: No classroom draft was produced. Try again.
+            requestId: req_01J0000000000000000000000A
+
+    InternalError:
+      description: An unexpected internal failure occurred.
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: urn:salinaral:problem:internal
+            title: Internal error
+            status: 500
+            detail: Try again later.
+            requestId: req_01J0000000000000000000000B
+
+  schemas:
+    RequestId:
+      type: string
+      minLength: 8
+      maxLength: 64
+      pattern: '^[A-Za-z0-9_-]+$'
+
+    LanguageCode:
+      type: string
+      minLength: 2
+      maxLength: 35
+      pattern: '^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$'
+      examples:
+        - en
+        - fil
+        - ceb
+        - hil
+
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - service
+        - version
+        - timestamp
+      properties:
+        status:
+          type: string
+          const: ok
+        service:
+          type: string
+          const: salinaral-api
+        version:
+          type: string
+          minLength: 1
+        timestamp:
+          type: string
+          format: date-time
+
+    Language:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - source
+        - target
+        - status
+      properties:
+        code:
+          $ref: '#/components/schemas/LanguageCode'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        source:
+          type: boolean
+        target:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/LanguageStatus'
+
+    LanguageStatus:
+      type: string
+      enum:
+        - experimental
+        - beta
+        - stable
+
+    LanguageListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - languages
+      properties:
+        languages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Language'
+
+    LocalisationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceLanguage
+        - targetLanguage
+        - text
+        - gradeLevel
+        - subject
+        - outputs
+      properties:
+        sourceLanguage:
+          $ref: '#/components/schemas/LanguageCode'
+        targetLanguage:
+          $ref: '#/components/schemas/LanguageCode'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        gradeLevel:
+          type: integer
+          minimum: 1
+          maximum: 10
+        subject:
+          $ref: '#/components/schemas/Subject'
+        outputs:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          contains:
+            const: translation
+          items:
+            $ref: '#/components/schemas/OutputKind'
+
+    OutputKind:
+      type: string
+      enum:
+        - translation
+        - simplified_explanation
+        - glossary
+        - questions
+
+    Subject:
+      type: string
+      enum:
+        - language
+        - mathematics
+        - science
+        - social_studies
+        - values_education
+        - other
+
+    LocalisationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+        - sourceText
+        - targetLanguage
+        - teachingPack
+        - provenance
+        - reviewStatus
+        - warnings
+      properties:
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+        sourceText:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        targetLanguage:
+          $ref: '#/components/schemas/LanguageCode'
+        teachingPack:
+          $ref: '#/components/schemas/TeachingPack'
+        provenance:
+          $ref: '#/components/schemas/ProviderProvenance'
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationWarning'
+
+    TeachingPack:
+      type: object
+      additionalProperties: false
+      required:
+        - faithfulTranslation
+      properties:
+        faithfulTranslation:
+          type: string
+          minLength: 1
+          maxLength: 30000
+        simplifiedExplanation:
+          type: string
+          minLength: 1
+          maxLength: 30000
+        glossary:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/GlossaryEntry'
+        questions:
+          type: array
+          minItems: 3
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ComprehensionQuestion'
+
+    GlossaryEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceTerm
+        - localisedTerm
+        - explanation
+      properties:
+        sourceTerm:
+          type: string
+          minLength: 1
+          maxLength: 200
+        localisedTerm:
+          type: string
+          minLength: 1
+          maxLength: 200
+        explanation:
+          type: string
+          minLength: 1
+          maxLength: 1000
+
+    ComprehensionQuestion:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - question
+      properties:
+        type:
+          type: string
+          enum:
+            - recall
+            - explanation
+            - application
+        question:
+          type: string
+          minLength: 1
+          maxLength: 1000
+
+    ReviewStatus:
+      type: string
+      enum:
+        - ai_generated
+        - teacher_edited
+        - native_speaker_reviewed
+        - community_verified
+
+    ProviderProvenance:
+      type: object
+      additionalProperties: false
+      required:
+        - translation
+      properties:
+        translation:
+          type: string
+          enum:
+            - google
+            - qwen
+        education:
+          type:
+            - string
+            - 'null'
+          enum:
+            - openai
+            - null
+
+    TranslationWarning:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          enum:
+            - number_changed
+            - measurement_changed
+            - date_changed
+            - name_missing
+            - formula_changed
+            - negation_changed
+            - terminology_review
+            - possible_omission
+            - low_ocr_confidence
+        message:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    OcrExtractionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: One JPEG, PNG, or WebP image no larger than 5 MiB or 4,000 by 4,000 pixels.
+        sourceLanguage:
+          $ref: '#/components/schemas/LanguageCode'
+
+    OcrExtractionResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - requestId
+        - extractedText
+        - reviewRequired
+        - reviewCues
+        - warnings
+      properties:
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+        extractedText:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        reviewRequired:
+          type: boolean
+          const: true
+        reviewCues:
+          type: array
+          items:
+            $ref: '#/components/schemas/OcrReviewCue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationWarning'
+
+    OcrReviewCue:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - startOffset
+        - endOffset
+      properties:
+        kind:
+          type: string
+          enum:
+            - low_confidence
+            - number
+            - date
+            - equation
+            - proper_noun
+            - scientific_term
+        startOffset:
+          type: integer
+          minimum: 0
+        endOffset:
+          type: integer
+          minimum: 1
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - requestId
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+          minLength: 1
+          maxLength: 300
+        requestId:
+          $ref: '#/components/schemas/RequestId'
+        errors:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required:
+        - field
+        - code
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'

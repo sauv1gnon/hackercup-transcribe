@@ -1,0 +1,73 @@
+{
+  "$schema": "./schemas/runtime-configuration.schema.json",
+  "version": 1,
+  "dotenvFilesAllowed": false,
+  "credentialFilesAllowed": false,
+  "variables": [
+    {
+      "name": "NODE_ENV",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "API runtime starts",
+      "description": "Runtime mode validated as development, test, or production."
+    },
+    {
+      "name": "PORT",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "API runtime starts",
+      "description": "HTTP port injected by Cloud Run or the invoking process."
+    },
+    {
+      "name": "LOG_LEVEL",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "API runtime starts",
+      "description": "Allowlisted operational log level."
+    },
+    {
+      "name": "CORS_ALLOWED_ORIGINS",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "API accepts browser traffic",
+      "description": "Explicit comma-separated frontend origins; wildcard production origin is forbidden."
+    },
+    {
+      "name": "PUBLIC_API_BASE_URL",
+      "kind": "public_configuration",
+      "exposure": "browser_safe",
+      "requiredWhen": "Web runtime starts",
+      "description": "Public API origin made available to the browser at runtime."
+    },
+    {
+      "name": "GOOGLE_CLOUD_PROJECT",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "A Google provider adapter is enabled",
+      "description": "Google Cloud project identifier; authentication uses workload identity."
+    },
+    {
+      "name": "GOOGLE_CLOUD_LOCATION",
+      "kind": "configuration",
+      "exposure": "server_only",
+      "requiredWhen": "Google Translation Advanced is enabled",
+      "description": "Google provider location, normally global for the MVP."
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "kind": "secret",
+      "exposure": "server_only",
+      "source": "runtime_injection",
+      "requiredWhen": "The educational adapter is enabled",
+      "description": "OpenAI credential injected from Secret Manager or an approved runtime secret tool."
+    },
+    {
+      "name": "QWEN_API_KEY",
+      "kind": "secret",
+      "exposure": "server_only",
+      "source": "runtime_injection",
+      "requiredWhen": "The optional Qwen-MT adapter is enabled",
+      "description": "Qwen credential for stretch scope only."
+    }
+  ]
+}

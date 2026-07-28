@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://salinaral.invalid/schemas/runtime-configuration.schema.json",
+  "title": "SalinAral runtime configuration manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "dotenvFilesAllowed", "credentialFilesAllowed", "variables"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "dotenvFilesAllowed": {
+      "const": false
+    },
+    "credentialFilesAllowed": {
+      "const": false
+    },
+    "variables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/variable"
+      }
+    }
+  },
+  "$defs": {
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "exposure", "requiredWhen", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "kind": {
+          "enum": ["configuration", "public_configuration", "secret"]
+        },
+        "exposure": {
+          "enum": ["browser_safe", "server_only"]
+        },
+        "source": {
+          "const": "runtime_injection"
+        },
+        "requiredWhen": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "secret"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["source"],
+            "properties": {
+              "exposure": {
+                "const": "server_only"
+              },
+              "source": {
+                "const": "runtime_injection"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "public_configuration"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "exposure": {
+                "const": "browser_safe"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

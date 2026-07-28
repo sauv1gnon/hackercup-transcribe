@@ -1,0 +1,8 @@
+.git/
+node_modules/
+dist/
+coverage/
+package-lock.json
+Hackercup Transcribe.md
+supported_endpoint.log
+LICENSE

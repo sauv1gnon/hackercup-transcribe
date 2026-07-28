@@ -1,0 +1,15 @@
+extends:
+  - recommended
+
+rules:
+  info-license: error
+  no-ambiguous-paths: error
+  no-invalid-media-type-examples: error
+  operation-2xx-response: error
+  operation-description: error
+  operation-operationId: error
+  operation-summary: error
+  operation-tag-defined: error
+  path-declaration-must-exist: error
+  security-defined: off
+  spec-strict-refs: error
