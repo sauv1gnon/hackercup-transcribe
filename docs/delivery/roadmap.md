@@ -29,7 +29,7 @@ Exit condition:
 
 ## Phase 1 — Text translation foundation
 
-**Status:** In progress.
+**Status:** Complete.
 
 Planned work:
 
@@ -48,7 +48,7 @@ Exit condition:
 
 ## Phase 2 — Educational output
 
-**Status:** Not started.
+**Status:** Complete.
 
 Implement grade and subject context, structured educational transformation, complete teaching-pack
 output, result editing, and provider-output validation.

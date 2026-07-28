@@ -10,6 +10,8 @@
   "dependencies": {
     "@salinaral/application": "0.1.0",
     "@salinaral/domain": "0.1.0",
-    "google-auth-library": "10.9.1"
+    "google-auth-library": "10.9.1",
+    "openai": "7.1.0",
+    "zod": "4.4.3"
   }
 }

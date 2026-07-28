@@ -1,7 +1,8 @@
 # Web application boundary
 
-Phase 1 contains the React teacher text workspace. It lets a teacher choose lesson context, submit
-plain text, and compare a returned translation with the source.
+Phase 2 extends the React teacher workspace with a complete teaching-pack request. Teachers compare
+the source with editable translation, simplified explanation, glossary, and comprehension-question
+sections. Edits remain only in browser memory.
 
 The browser may depend on shared transport contracts. It must not import backend domain,
 application, or infrastructure modules.

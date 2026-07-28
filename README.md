@@ -11,7 +11,7 @@ claim of Department of Education approval.
 
 ## Current state
 
-**Phase 0 is complete and remains the current gated state. Phase 1 has not started.**
+**Phase 2 is complete and remains the current gated state. Phase 3 has not started.**
 
 This repository currently contains the project specifications, architecture boundaries, security
 policy, quality gates, and empty ownership boundaries needed for implementation. It intentionally
@@ -66,7 +66,3 @@ docs/            Product, architecture, delivery, security, quality, and AI-agen
 scripts/         Repository policy checks
 tests/           Executable Phase 0 contract checks
 ```
-
-Implementation dependencies for React, Fastify, cloud providers, and AI providers are deliberately
-deferred until Phase 1 or their owning phase. Phase 0 installs only the JavaScript tooling required
-to validate this foundation.

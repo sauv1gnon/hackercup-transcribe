@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import { LocaliseText, ProviderFailure } from '@salinaral/application';
+import { LocaliseLesson, ProviderFailure } from '@salinaral/application';
 import {
   localisationRequestSchema,
   type LocalisationResponse,
@@ -11,6 +11,7 @@ import { createTranslationRequest, DomainError, supportedLanguages } from '@sali
 import {
   ConsoleOperationalLogger,
   GoogleTranslationProvider,
+  OpenAIEducationAdapter,
   type OperationalEvent,
   type OperationalLogger,
   type RuntimeConfig,
@@ -111,7 +112,9 @@ function providerProblem(error: ProviderFailure, identifier: string): Problem {
     identifier,
     503,
     'service-unavailable',
-    'Translation is temporarily unavailable',
+    error.providerAlias === 'openai'
+      ? 'Lesson drafting is temporarily unavailable'
+      : 'Translation is temporarily unavailable',
     'Try again later.',
   );
 }
@@ -131,7 +134,7 @@ export async function buildApp(
   const app = Fastify({
     logger: false,
     bodyLimit: 80_000,
-    requestTimeout: 30_000,
+    requestTimeout: 55_000,
     genReqId: requestId,
   });
 
@@ -214,8 +217,9 @@ export async function buildApp(
     return { languages: supportedLanguages };
   });
 
-  const localiseText = new LocaliseText(
+  const localiseLesson = new LocaliseLesson(
     new GoogleTranslationProvider(config.googleCloudProject, config.googleCloudLocation),
+    new OpenAIEducationAdapter(config.openAiApiKey),
   );
 
   app.post(
@@ -284,16 +288,39 @@ export async function buildApp(
       }
 
       try {
-        const draft = await localiseText.execute(translationRequest);
+        const draft = await localiseLesson.execute(translationRequest, parsed.data.outputs);
         const response: LocalisationResponse = {
           requestId: request.id,
           sourceText: translationRequest.text,
           targetLanguage: translationRequest.targetLanguage,
           teachingPack: {
-            faithfulTranslation: draft.faithfulTranslation,
+            faithfulTranslation: draft.teachingPack.faithfulTranslation,
+            ...(draft.teachingPack.simplifiedExplanation === undefined
+              ? {}
+              : { simplifiedExplanation: draft.teachingPack.simplifiedExplanation }),
+            ...(draft.teachingPack.glossary === undefined
+              ? {}
+              : {
+                  glossary: draft.teachingPack.glossary.map((entry) => ({
+                    sourceTerm: entry.sourceTerm,
+                    localisedTerm: entry.localisedTerm,
+                    explanation: entry.explanation,
+                  })),
+                }),
+            ...(draft.teachingPack.questions === undefined
+              ? {}
+              : {
+                  questions: draft.teachingPack.questions.map((question) => ({
+                    type: question.type,
+                    question: question.question,
+                  })),
+                }),
           },
           provenance: {
-            translation: draft.provider,
+            translation: draft.translationProvider,
+            ...(draft.educationProvider === undefined
+              ? {}
+              : { education: draft.educationProvider }),
           },
           reviewStatus: 'ai_generated',
           warnings: [],
@@ -305,7 +332,7 @@ export async function buildApp(
           duration: Math.round(performance.now() - started),
           resultCategory: 'success',
           httpStatus: 200,
-          providerAlias: 'google',
+          providerAlias: draft.educationProvider ?? draft.translationProvider,
           sourceLanguage: translationRequest.sourceLanguage,
           targetLanguage: translationRequest.targetLanguage,
           grade: translationRequest.gradeLevel,
@@ -323,7 +350,7 @@ export async function buildApp(
             duration: Math.round(performance.now() - started),
             resultCategory: error.code,
             httpStatus: problem.status,
-            providerAlias: 'google',
+            providerAlias: error.providerAlias,
             sourceLanguage: translationRequest.sourceLanguage,
             targetLanguage: translationRequest.targetLanguage,
             grade: translationRequest.gradeLevel,

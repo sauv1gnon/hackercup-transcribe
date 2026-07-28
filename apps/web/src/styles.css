@@ -46,12 +46,14 @@ body {
 }
 
 button,
+input,
 select,
 textarea {
   font: inherit;
 }
 
 button,
+input,
 select {
   min-height: 2.75rem;
 }
@@ -83,6 +85,7 @@ button:disabled {
 }
 
 button:focus-visible,
+input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
@@ -269,6 +272,7 @@ label {
   font-weight: 650;
 }
 
+input,
 select,
 textarea {
   width: 100%;
@@ -278,8 +282,13 @@ textarea {
   color: var(--ink);
 }
 
+input,
 select {
   padding: 0.6rem 2.25rem 0.6rem 0.75rem;
+}
+
+input {
+  padding-right: 0.75rem;
 }
 
 textarea {
@@ -364,27 +373,143 @@ textarea::placeholder {
   color: var(--review);
 }
 
-.comparison {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.review-summary {
+  display: flex;
+  min-width: 17rem;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.comparison article {
+.review-summary .review-label {
   min-width: 0;
-  padding: 1.75rem 0 0;
+  margin: 0;
 }
 
-.comparison article + article {
-  margin-left: 1.75rem;
-  padding-left: 1.75rem;
-  border-left: 1px solid var(--border);
+.edit-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: right;
 }
 
-.comparison p {
+.result-workspace {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr);
+}
+
+.source-copy {
+  min-width: 0;
+  padding: 1.75rem 1.75rem 0 0;
+  border-right: 1px solid var(--border);
+}
+
+.source-context {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.source-copy > p:last-child {
   max-width: 70ch;
   margin-bottom: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.pack-editor {
+  min-width: 0;
+  padding-left: 1.75rem;
+}
+
+.editor-section {
+  min-width: 0;
+  margin: 0;
+  padding: 1.75rem 0;
+  border: 0;
+}
+
+.editor-section + .editor-section {
+  border-top: 1px solid var(--border);
+}
+
+.editor-section:last-child {
+  padding-bottom: 0;
+}
+
+.editor-section legend,
+.editor-heading h3 {
+  padding: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.editor-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.editor-heading h3 {
+  margin: 0;
+}
+
+.editor-heading span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.editor-section > textarea {
+  min-height: 0;
+}
+
+.section-help {
+  margin: 0.35rem 0 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.glossary-list,
+.question-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.glossary-entry,
+.question-entry {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 1.5fr);
+  gap: 0.75rem;
+  padding-block: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.question-entry {
+  grid-template-columns: 2rem minmax(9rem, 0.55fr) minmax(0, 1.45fr);
+}
+
+.entry-number {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.glossary-entry textarea,
+.question-entry textarea {
+  min-height: 5.5rem;
+  padding: 0.75rem;
+}
+
+.glossary-explanation,
+.question-text {
+  min-width: 0;
 }
 
 footer {
@@ -442,15 +567,36 @@ footer p {
   }
 
   .context-fields,
-  .comparison {
+  .result-workspace {
     grid-template-columns: 1fr;
   }
 
-  .comparison article + article {
-    margin: 1.5rem 0 0;
-    padding: 1.5rem 0 0;
-    border-top: 1px solid var(--border);
-    border-left: 0;
+  .source-copy {
+    padding: 1.5rem 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pack-editor {
+    padding-left: 0;
+  }
+
+  .glossary-entry,
+  .question-entry {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .glossary-entry label,
+  .question-entry label {
+    grid-column: 2;
+  }
+
+  .review-summary {
+    min-width: 0;
+  }
+
+  .edit-status {
+    text-align: left;
   }
 
   .review-label {

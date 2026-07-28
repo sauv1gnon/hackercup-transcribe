@@ -38,7 +38,8 @@ export type DomainErrorCode =
   | 'text_too_large'
   | 'unsupported_language_pair'
   | 'same_language'
-  | 'invalid_lesson_context';
+  | 'invalid_lesson_context'
+  | 'invalid_educational_output';
 
 export class DomainError extends Error {
   public override readonly name = 'DomainError';
@@ -64,6 +65,31 @@ export interface TranslationRequestInput {
   readonly subject: string;
 }
 
+export type ComprehensionQuestionType = 'recall' | 'explanation' | 'application';
+
+export interface GlossaryEntry {
+  readonly sourceTerm: string;
+  readonly localisedTerm: string;
+  readonly explanation: string;
+}
+
+export interface ComprehensionQuestion {
+  readonly type: ComprehensionQuestionType;
+  readonly question: string;
+}
+
+export interface EducationalSections {
+  readonly simplifiedExplanation: string;
+  readonly glossary: readonly GlossaryEntry[];
+  readonly questions: readonly ComprehensionQuestion[];
+}
+
+export interface EducationalSectionsInput {
+  readonly simplifiedExplanation: string;
+  readonly glossary: readonly GlossaryEntry[];
+  readonly questions: readonly ComprehensionQuestion[];
+}
+
 const subjects = new Set<string>([
   'language',
   'mathematics',
@@ -87,6 +113,49 @@ function isTargetLanguage(value: LanguageCode): boolean {
 
 function isSubject(value: string): value is Subject {
   return subjects.has(value);
+}
+
+function educationalText(value: string, maximumLength: number): string {
+  const normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+  if (normalized.length === 0 || [...normalized].length > maximumLength) {
+    throw new DomainError('invalid_educational_output');
+  }
+  return normalized;
+}
+
+export function createEducationalSections(input: EducationalSectionsInput): EducationalSections {
+  if (input.glossary.length < 1 || input.glossary.length > 50) {
+    throw new DomainError('invalid_educational_output');
+  }
+
+  if (input.questions.length < 3 || input.questions.length > 5) {
+    throw new DomainError('invalid_educational_output');
+  }
+
+  const requiredQuestionTypes = new Set<ComprehensionQuestionType>([
+    'recall',
+    'explanation',
+    'application',
+  ]);
+  for (const question of input.questions) {
+    requiredQuestionTypes.delete(question.type);
+  }
+  if (requiredQuestionTypes.size > 0) {
+    throw new DomainError('invalid_educational_output');
+  }
+
+  return {
+    simplifiedExplanation: educationalText(input.simplifiedExplanation, 30_000),
+    glossary: input.glossary.map((entry) => ({
+      sourceTerm: educationalText(entry.sourceTerm, 200),
+      localisedTerm: educationalText(entry.localisedTerm, 200),
+      explanation: educationalText(entry.explanation, 1_000),
+    })),
+    questions: input.questions.map((question) => ({
+      type: question.type,
+      question: educationalText(question.question, 1_000),
+    })),
+  };
 }
 
 export function createTranslationRequest(input: TranslationRequestInput): TranslationRequest {

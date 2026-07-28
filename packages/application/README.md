@@ -2,4 +2,6 @@
 
 Owns use cases and provider ports. It may depend only on the domain module.
 
-Phase 1 implements the text-localisation use case and its translation provider boundary.
+Phase 2 adds the education adapter boundary and localisation orchestration. It preserves the
+translation-only path and calls educational transformation once when any educational section is
+requested.

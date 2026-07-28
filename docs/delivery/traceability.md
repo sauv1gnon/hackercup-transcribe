@@ -11,9 +11,9 @@ acceptance evidence. It is a planning index, not proof that later-phase behavior
 | FR-002 Lesson context            | 1       | `contracts`, `web`              | `LocalisationRequest`                    |
 | FR-003 Text submission           | 1       | `api`, `application`            | AC-001; text bounds in OpenAPI           |
 | FR-004 Reviewed image extraction | 3       | `api`, `infrastructure`, `web`  | AC-002, AC-005; OCR operation            |
-| FR-005 Teaching pack             | 2       | `application`, `infrastructure` | AC-001; `TeachingPack`                   |
-| FR-006 Teacher editing and reuse | 2 and 4 | `web`                           | Interaction and accessibility tests      |
-| FR-007 Review and provenance     | 2 and 4 | `domain`, `contracts`, `web`    | Review status and warning schemas        |
+| FR-005 Teaching pack             | 2       | `application`, `infrastructure` | AC-001; Phase 2 educational-output test  |
+| FR-006 Teacher editing and reuse | 2 and 4 | `web`                           | Editable Phase 2 pack; Phase 4 actions   |
+| FR-007 Review and provenance     | 2 and 4 | `domain`, `contracts`, `web`    | AI draft and local teacher-edited states |
 | FR-008 Language discovery        | 1 and 4 | `domain`, `api`                 | Languages operation; evaluation evidence |
 | FR-009 Preservation warnings     | 4       | `domain`, `application`         | AC-003; warning schema                   |
 | FR-010 Demonstration samples     | 4       | `web`                           | End-to-end demo acceptance               |

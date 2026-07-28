@@ -29,7 +29,7 @@ function apiBaseUrl(): string {
 
 async function fetchWithDeadline(path: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 25_000);
+  const timer = window.setTimeout(() => controller.abort(), 60_000);
 
   try {
     return await fetch(`${apiBaseUrl()}${path}`, {
@@ -83,7 +83,7 @@ export async function createLocalisation(
 
   const parsed = localisationResponseSchema.safeParse(await response.json());
   if (!parsed.success) {
-    throw new ApiError('The translation could not be checked. Please try again.');
+    throw new ApiError('The teaching pack could not be checked. Please try again.');
   }
   return parsed.data;
 }

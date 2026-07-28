@@ -36,6 +36,24 @@ export const outputKindSchema = z.enum([
   'questions',
 ]);
 
+export const glossaryEntrySchema = z.object({
+  sourceTerm: z.string().min(1).max(200),
+  localisedTerm: z.string().min(1).max(200),
+  explanation: z.string().min(1).max(1_000),
+});
+
+export const comprehensionQuestionSchema = z.object({
+  type: z.enum(['recall', 'explanation', 'application']),
+  question: z.string().min(1).max(1_000),
+});
+
+export const teachingPackSchema = z.object({
+  faithfulTranslation: z.string().min(1).max(30_000),
+  simplifiedExplanation: z.string().min(1).max(30_000).optional(),
+  glossary: z.array(glossaryEntrySchema).min(1).max(50).optional(),
+  questions: z.array(comprehensionQuestionSchema).min(3).max(5).optional(),
+});
+
 export const localisationRequestSchema = z.object({
   sourceLanguage: languageCodeSchema,
   targetLanguage: languageCodeSchema,
@@ -71,30 +89,7 @@ export const localisationResponseSchema = z.object({
     .regex(/^[A-Za-z0-9_-]+$/),
   sourceText: z.string().min(1).max(20_000),
   targetLanguage: languageCodeSchema,
-  teachingPack: z.object({
-    faithfulTranslation: z.string().min(1).max(30_000),
-    simplifiedExplanation: z.string().min(1).max(30_000).optional(),
-    glossary: z
-      .array(
-        z.object({
-          sourceTerm: z.string().min(1).max(200),
-          localisedTerm: z.string().min(1).max(200),
-          explanation: z.string().min(1).max(1_000),
-        }),
-      )
-      .max(50)
-      .optional(),
-    questions: z
-      .array(
-        z.object({
-          type: z.enum(['recall', 'explanation', 'application']),
-          question: z.string().min(1).max(1_000),
-        }),
-      )
-      .min(3)
-      .max(5)
-      .optional(),
-  }),
+  teachingPack: teachingPackSchema,
   provenance: z.object({
     translation: z.enum(['google', 'qwen']),
     education: z.enum(['openai']).nullable().optional(),
@@ -131,3 +126,7 @@ export type LocalisationRequest = z.infer<typeof localisationRequestSchema>;
 export type LocalisationResponse = z.infer<typeof localisationResponseSchema>;
 export type Problem = z.infer<typeof problemSchema>;
 export type Subject = z.infer<typeof subjectSchema>;
+export type OutputKind = z.infer<typeof outputKindSchema>;
+export type TeachingPack = z.infer<typeof teachingPackSchema>;
+export type GlossaryEntry = z.infer<typeof glossaryEntrySchema>;
+export type ComprehensionQuestion = z.infer<typeof comprehensionQuestionSchema>;

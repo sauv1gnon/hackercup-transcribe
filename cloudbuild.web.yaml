@@ -5,7 +5,7 @@ steps:
       - --file
       - Dockerfile.web
       - --tag
-      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/web:phase1
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/web:phase2
       - .
 images:
-  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/web:phase1
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/web:phase2

@@ -48,13 +48,13 @@ async function readJson<T>(repositoryPath: string): Promise<T> {
 }
 
 describe('Delivery foundation', () => {
-  it('opens Phase 1 explicitly while keeping later phases closed', async () => {
+  it('opens Phase 2 explicitly while keeping later phases closed', async () => {
     const status = await readJson<DeliveryStatus>('docs/delivery/status.json');
 
-    expect(status.currentPhase).toBe(1);
+    expect(status.currentPhase).toBe(2);
     expect(status.phases['phase0']?.status).toBe('complete');
-    expect(status.phases['phase1']?.status).toBe('in_progress');
-    expect(status.phases['phase2']?.status).toBe('not_started');
+    expect(status.phases['phase1']?.status).toBe('complete');
+    expect(status.phases['phase2']?.status).toBe('complete');
   });
 
   it('reserves every declared module path', async () => {
