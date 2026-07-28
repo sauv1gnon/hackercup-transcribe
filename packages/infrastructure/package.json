@@ -1,0 +1,15 @@
+{
+  "name": "@salinaral/infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@salinaral/application": "0.1.0",
+    "@salinaral/domain": "0.1.0",
+    "google-auth-library": "10.9.1"
+  }
+}

@@ -3,8 +3,6 @@ name: SalinAral
 description: A calm, teacher-controlled workspace for reviewing regional-language lesson drafts.
 ---
 
-<!-- SEED: re-run $impeccable document once there's code to capture the actual tokens and components. -->
-
 # Design System: SalinAral
 
 ## Overview
@@ -39,32 +37,32 @@ action and state.
 
 ### Primary
 
-- **Oxidized Crimson** `[to be resolved during implementation]`: the generated warm-red seed anchors
-  primary actions, current selection, and review-critical emphasis. It should occupy no more than
-  ten percent of a typical screen.
+- **Workbook Indigo** `oklch(0.36 0.17 270)`: anchors primary actions, visible focus, and the
+  compact SalinAral mark. It should occupy no more than ten percent of a typical screen.
+- **Correction Crimson** `oklch(0.43 0.16 25)`: is reserved for review-critical text and errors. It
+  never acts as ambient decoration.
 
 ### Neutral
 
-- **True White** `[to be resolved during implementation]`: the primary reading and editing
-  background, chosen for clear classroom-light legibility rather than decorative warmth.
-- **Quiet Surface** `[to be resolved during implementation]`: a subtle neutral layer for toolbars,
-  grouped controls, and comparison regions.
-- **Lesson Ink** `[to be resolved during implementation]`: the high-contrast text color for source
-  and generated lesson content.
-- **Supporting Ink** `[to be resolved during implementation]`: secondary text that remains readable
-  in bright ambient light.
+- **True White** `oklch(1 0 0)`: the primary reading and editing background, chosen for clear
+  classroom-light legibility rather than decorative warmth.
+- **Quiet Surface** `oklch(0.965 0.004 270)`: a subtle neutral layer for toolbars, grouped controls,
+  and comparison regions.
+- **Lesson Ink** `oklch(0.21 0.018 270)`: the high-contrast text color for source and generated
+  lesson content.
+- **Supporting Ink** `oklch(0.43 0.022 270)`: secondary text that remains readable in bright ambient
+  light.
 
-**The Restrained Color Rule.** Oxidized crimson is functional and rare. Do not use it as ambient
-decoration or tint every neutral surface toward warmth.
+**The Restrained Color Rule.** Workbook indigo and correction crimson are functional and rare. Do
+not use them as ambient decoration or tint every neutral surface.
 
 **The Meaning Beyond Color Rule.** Warnings, language maturity, selection, and review status always
 include text or another non-color cue.
 
 ## Typography
 
-Use a single humanist sans-serif family for lesson text, controls, labels, and headings. The exact
-family and scale are `[to be resolved during implementation]` after representative Philippine
-language content can be tested for character coverage and readability.
+Use the system humanist sans-serif stack for lesson text, controls, labels, and headings. This keeps
+loading light and provides broad character coverage on the teacher's device.
 
 The type system should feel approachable without becoming casual. Use a compact product hierarchy,
 comfortable paragraph leading, and a maximum prose measure of approximately 65–75 characters. Labels

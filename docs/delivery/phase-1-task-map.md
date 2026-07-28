@@ -1,9 +1,9 @@
 # Phase 1 task map
 
-**Status:** Planning only. Phase 1 has not started.
+**Status:** In progress from 2026-07-29.
 
-This map decomposes the next phase into independently verifiable units. It does not authorize any
-unit while `status.json` keeps Phase 1 closed.
+This map decomposes Phase 1 into independently verifiable units. The user opened the phase on
+2026-07-29; `status.json` is the current delivery state.
 
 ## Opening procedure
 
@@ -18,6 +18,13 @@ Resolve current compatible dependency versions when the phase opens. Do not inst
 future stack speculatively.
 
 ## Ordered units
+
+### Current implementation slice
+
+The first text-only path is implemented across P1-01 through P1-08. These units remain open until
+their stated checks are recorded. P1-09 is deployed and proven in
+`docs/delivery/phase-1-deployment-evidence.md`; repeat deployment steps are in
+`docs/development/phase-1-developer-handoff.md`.
 
 ### P1-01 — Workspace build skeleton
 
@@ -87,6 +94,7 @@ future stack speculatively.
 - **Risk:** runtime identity, CORS, and rollback
 - **Done:** deployed frontend/API pass health and translation smoke tests with Secret
   Manager/workload identity and no credential file
+- **Status:** Complete on 2026-07-29. Evidence: `docs/delivery/phase-1-deployment-evidence.md`
 
 ## Phase exit
 

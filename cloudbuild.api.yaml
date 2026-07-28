@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - Dockerfile.api
+      - --tag
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase1
+      - .
+images:
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase1

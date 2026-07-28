@@ -1,0 +1,20 @@
+FROM node:22-slim AS build
+
+WORKDIR /workspace
+COPY package.json package-lock.json tsconfig.json ./
+COPY apps/web/package.json apps/web/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+RUN npm ci
+COPY apps/web apps/web
+COPY packages/contracts packages/contracts
+RUN npm run build --workspace @salinaral/web
+
+FROM node:22-slim
+
+ENV NODE_ENV=production
+WORKDIR /workspace/apps/web
+COPY --from=build /workspace/apps/web/dist dist
+COPY apps/web/server.mjs server.mjs
+
+USER node
+CMD ["node", "server.mjs"]

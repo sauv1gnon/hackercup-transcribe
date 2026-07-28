@@ -16,7 +16,10 @@
   ],
   "scripts": {
     "audit": "npm audit --audit-level=high",
+    "build": "npm run build --workspaces --if-present",
     "check": "npm run phase:check && npm run format:check && npm run lint && npm run typecheck && npm run test && npm run spec:lint && npm run secrets:scan",
+    "dev:api": "npm run dev --workspace @salinaral/api",
+    "dev:web": "npm run dev --workspace @salinaral/web",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0 && markdownlint-cli2",
@@ -24,7 +27,7 @@
     "secrets:scan": "secretlint \"**/*\"",
     "spec:lint": "redocly lint specs/openapi.yaml",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

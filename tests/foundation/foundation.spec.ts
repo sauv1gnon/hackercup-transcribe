@@ -1,4 +1,4 @@
-import { access, readdir, readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { Ajv } from 'ajv';
@@ -47,13 +47,14 @@ async function readJson<T>(repositoryPath: string): Promise<T> {
   return JSON.parse(contents) as T;
 }
 
-describe('Phase 0 foundation', () => {
-  it('keeps Phase 1 explicitly closed', async () => {
+describe('Delivery foundation', () => {
+  it('opens Phase 1 explicitly while keeping later phases closed', async () => {
     const status = await readJson<DeliveryStatus>('docs/delivery/status.json');
 
-    expect(status.currentPhase).toBe(0);
+    expect(status.currentPhase).toBe(1);
     expect(status.phases['phase0']?.status).toBe('complete');
-    expect(status.phases['phase1']?.status).toBe('not_started');
+    expect(status.phases['phase1']?.status).toBe('in_progress');
+    expect(status.phases['phase2']?.status).toBe('not_started');
   });
 
   it('reserves every declared module path', async () => {
@@ -185,12 +186,15 @@ describe('Phase 0 foundation', () => {
     expect(document.paths).not.toHaveProperty('/api/v1/localise/image');
   });
 
-  it('contains no implementation file in reserved modules during Phase 0', async () => {
+  it('creates a workspace manifest for each Phase 1 owning module', async () => {
     const boundaries = await readJson<ModuleBoundaryContract>('specs/module-boundaries.json');
 
-    for (const module of boundaries.modules) {
-      const entries = await readdir(path.join(repositoryRoot, module.path));
-      expect(entries).toEqual(['README.md']);
-    }
+    await Promise.all(
+      boundaries.modules.map(async (module) => {
+        await expect(
+          access(path.join(repositoryRoot, module.path, 'package.json')),
+        ).resolves.toBeUndefined();
+      }),
+    );
   });
 });

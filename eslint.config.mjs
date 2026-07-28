@@ -12,7 +12,14 @@ const backendFiles = [
 
 export default tseslint.config(
   {
-    ignores: ['.git/**', 'coverage/**', 'dist/**', 'node_modules/**', 'supported_endpoint.log'],
+    ignores: [
+      '.git/**',
+      'apps/web/dist/**',
+      'coverage/**',
+      'dist/**',
+      'node_modules/**',
+      'supported_endpoint.log',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strict,
@@ -49,9 +56,18 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/**/*.{ts,tsx}'],
+    files: ['apps/web/**/*.{js,ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
+    },
+  },
+  {
+    files: ['apps/web/server.mjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      'no-console': 'off',
     },
   },
   {

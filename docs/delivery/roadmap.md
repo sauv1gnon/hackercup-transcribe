@@ -29,7 +29,7 @@ Exit condition:
 
 ## Phase 1 — Text translation foundation
 
-**Status:** Not started.
+**Status:** In progress.
 
 Planned work:
 

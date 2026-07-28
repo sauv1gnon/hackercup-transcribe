@@ -1,6 +1,6 @@
 {
   "$schema": "./status.schema.json",
-  "currentPhase": 0,
+  "currentPhase": 1,
   "lastUpdated": "2026-07-29",
   "phases": {
     "phase0": {
@@ -9,7 +9,7 @@
     },
     "phase1": {
       "name": "Text translation foundation",
-      "status": "not_started"
+      "status": "in_progress"
     },
     "phase2": {
       "name": "Educational output",

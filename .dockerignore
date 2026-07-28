@@ -1,0 +1,11 @@
+.git
+.github
+.agents
+coverage
+dist
+node_modules
+docs
+specs
+tests
+supported_endpoint.log
+*.md
