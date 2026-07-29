@@ -24,16 +24,20 @@ fake OCR port and require no Google access.
 
 ## Current deployment
 
-| Service | Revision                  | Immutable image digest |
-| ------- | ------------------------- | ---------------------- |
-| API     | `salinaral-api-00003-tgl` | `sha256:cfd4faa64fba`  |
-| Website | `salinaral-web-00004-p4z` | `sha256:901980c7582f`  |
+| Service | Revision                      | Immutable image digest |
+| ------- | ----------------------------- | ---------------------- |
+| API     | `salinaral-api-00004-hhr`     | `sha256:cfd4faa64fba`  |
+| Website | `salinaral-web-public-domain` | `sha256:901980c7582f`  |
 
 Both revisions serve 100 percent of traffic in project `omskrt`, region `asia-southeast1`. The
-stable service addresses remain:
+public and stable service addresses are:
 
+- Public website: `https://salinaral.alt-surf.com/`
 - API: `https://salinaral-api-362467836118.asia-southeast1.run.app`
-- Website: `https://salinaral-web-362467836118.asia-southeast1.run.app`
+- Google Cloud Run website: `https://salinaral-web-362467836118.asia-southeast1.run.app`
+
+The API `CORS_ALLOWED_ORIGINS` setting contains both website origins as an explicit comma-separated
+allowlist. Do not remove the Google Cloud Run website origin when updating the public domain.
 
 The complete rollout record is in `docs/delivery/phase-3-deployment-evidence.md`.
 
@@ -80,13 +84,16 @@ Then check the stable service addresses and the approved browser origin:
 
 ```powershell
 $apiUrl = "https://salinaral-api-362467836118.asia-southeast1.run.app"
-$webUrl = "https://salinaral-web-362467836118.asia-southeast1.run.app"
+$googleWebUrl = "https://salinaral-web-362467836118.asia-southeast1.run.app"
+$publicWebUrl = "https://salinaral.alt-surf.com"
 
 curl.exe --fail --silent --show-error "$apiUrl/api/v1/health"
 curl.exe --fail --silent --show-error "$apiUrl/api/v1/languages"
-curl.exe --fail --silent --show-error --output NUL $webUrl
-curl.exe --fail --silent --show-error "$webUrl/config.js"
-curl.exe --fail --silent --show-error --dump-header - --output NUL --header "Origin: $webUrl" "$apiUrl/api/v1/languages"
+curl.exe --fail --silent --show-error --output NUL $publicWebUrl
+curl.exe --fail --silent --show-error --output NUL $googleWebUrl
+curl.exe --fail --silent --show-error "$publicWebUrl/config.js"
+curl.exe --fail --silent --show-error --dump-header - --output NUL --header "Origin: $publicWebUrl" "$apiUrl/api/v1/languages"
+curl.exe --fail --silent --show-error --dump-header - --output NUL --header "Origin: $googleWebUrl" "$apiUrl/api/v1/languages"
 ```
 
 For the OCR check, use one synthetic or approved non-private JPEG, PNG, or WebP file:
@@ -104,12 +111,12 @@ lesson or OCR text into deployment evidence or logs.
 The immediately preceding revisions remain available:
 
 ```powershell
-gcloud run services update-traffic salinaral-api --project $projectId --region $region --to-revisions "salinaral-api-00002-sx9=100"
-gcloud run services update-traffic salinaral-web --project $projectId --region $region --to-revisions "salinaral-web-00003-k7b=100"
+gcloud run services update-traffic salinaral-api --project $projectId --region $region --to-revisions "salinaral-api-00003-tgl=100"
+gcloud run services update-traffic salinaral-web --project $projectId --region $region --to-revisions "salinaral-web-00004-p4z=100"
 ```
 
 After rollback, repeat the health, web, configuration, and CORS checks. The previous API revision
-does not support the Phase 3 OCR endpoint.
+supports Phase 3 OCR but allows only the Google Cloud Run website origin.
 
 ## Expected behavior
 

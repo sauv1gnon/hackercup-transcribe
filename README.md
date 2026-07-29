@@ -20,6 +20,12 @@ material is an AI-assisted draft—review before classroom use. See
 [delivery status](docs/delivery/status.json), the [roadmap](docs/delivery/roadmap.md), and
 [Phase 3 evidence](docs/delivery/phase-3-evidence.md).
 
+A temporary public demonstration is available at
+[https://salinaral.alt-surf.com/](https://salinaral.alt-surf.com/). Availability is not guaranteed,
+and the deployment may be removed after the demonstration period. The
+[AI and service transparency record](docs/transparency.md) identifies the primary development agent,
+translation pipeline, educator agent, and disclosure boundaries.
+
 ## Start here
 
 1. Read [`AGENTS.md`](AGENTS.md).
@@ -27,6 +33,7 @@ material is an AI-assisted draft—review before classroom use. See
 3. Read the [architecture](docs/architecture/architecture.md).
 4. Inspect the [OpenAPI contract](specs/openapi.yaml).
 5. Confirm the [active delivery phase](docs/delivery/status.json).
+6. Review the [AI and service transparency record](docs/transparency.md).
 
 The original research and recommendation brief remains in
 [`Hackercup Transcribe.md`](Hackercup%20Transcribe.md). It is source material, not the executable

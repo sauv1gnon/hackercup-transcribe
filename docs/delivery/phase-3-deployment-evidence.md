@@ -46,8 +46,37 @@ revisions remain available for rollback.
 No full test suite, deployment rebuild, visual check, private lesson, or classroom material was used
 for this close-off.
 
+## Public-domain rollout
+
+On 2026-07-29, the public website `https://salinaral.alt-surf.com/` was added without removing the
+Google Cloud Run website endpoint.
+
+| Service | Ready revision                | Traffic | Immutable digest prefix |
+| ------- | ----------------------------- | ------- | ----------------------- |
+| API     | `salinaral-api-00004-hhr`     | 100%    | `sha256:cfd4faa64fba`   |
+| Website | `salinaral-web-public-domain` | 100%    | `sha256:901980c7582f`   |
+
+The API retained its workload identity, Secret Manager binding, image, and other runtime settings.
+Its explicit CORS allowlist now contains both:
+
+- `https://salinaral.alt-surf.com`
+- `https://salinaral-web-362467836118.asia-southeast1.run.app`
+
+The website was rolled out from the same previously verified immutable image. Its browser runtime
+configuration continues to use the stable API address.
+
+Pre-deployment `npm run check` passed all 16 tests and every formatting, linting, type, contract,
+phase, and secret gate. `npm run audit` reported zero vulnerabilities. Live smoke checks proved:
+
+- API health and language discovery returned HTTP 200;
+- the public and Google Cloud Run website addresses returned HTTP 200;
+- the public website served the expected API runtime configuration;
+- both approved origins received their matching `Access-Control-Allow-Origin` header;
+- an unapproved origin received no `Access-Control-Allow-Origin` header; and
+- both new revisions were ready with 100 percent of traffic.
+
 ## Rollback
 
-The immediate rollback targets are API revision `salinaral-api-00002-sx9` and website revision
-`salinaral-web-00003-k7b`. Exact rollback commands and targeted checks are documented in
+The immediate rollback targets are API revision `salinaral-api-00003-tgl` and website revision
+`salinaral-web-00004-p4z`. Exact rollback commands and targeted checks are documented in
 `docs/development/phase-3-developer-handoff.md`.
