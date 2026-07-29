@@ -8,8 +8,8 @@ info:
     SalinAral accepts teacher-reviewed lesson text or extracts transient text from one image.
     Generated educational content is an AI-assisted draft and requires teacher review.
 
-    This contract describes planned MVP behavior. Phase 0 contains no route implementation.
-    Request and response bodies containing lesson content must never be persisted or logged.
+    Implemented behavior remains gated by docs/delivery/status.json. Request and response bodies
+    containing lesson content must never be persisted or logged.
   version: 0.1.0
   license:
     name: MIT

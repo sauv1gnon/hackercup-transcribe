@@ -3,6 +3,6 @@
 Owns external provider adapters, runtime configuration, logging, and other technical integrations.
 It may depend on application ports and domain concepts; inner layers never depend on it.
 
-Phase 2 adds OpenAI Responses API structured educational output using `gpt-5.6-luna`, with
-request-scoped processing, disabled response storage, bounded timeouts, and stable provider-error
-mapping.
+Phase 3 adds decoded JPEG, PNG, and WebP validation with metadata removal plus Google Vision
+document-text extraction. Image and OCR content remain request-scoped, provider calls have bounded
+timeouts, and errors map to stable application failures.

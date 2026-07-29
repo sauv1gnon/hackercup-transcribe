@@ -1,8 +1,8 @@
 # Web application boundary
 
-Phase 2 extends the React teacher workspace with a complete teaching-pack request. Teachers compare
-the source with editable translation, simplified explanation, glossary, and comprehension-question
-sections. Edits remain only in browser memory.
+Phase 3 lets a teacher select one JPEG, PNG, or WebP worksheet image and place its extracted text
+into the existing editable source field. OCR does not trigger localisation; the teacher reviews the
+text and submits it separately. Source and result edits remain only in browser memory.
 
 The browser may depend on shared transport contracts. It must not import backend domain,
 application, or infrastructure modules.

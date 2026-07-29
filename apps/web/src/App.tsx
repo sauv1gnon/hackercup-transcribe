@@ -120,7 +120,9 @@ export function App(): React.JSX.Element {
     try {
       const response = await extractTextFromImage(formData);
       setText(response.extractedText);
-      setOcrNotice(response.reviewRequired ? 'The extracted text is ready for your review.' : undefined);
+      setOcrNotice(
+        response.reviewRequired ? 'The extracted text is ready for your review.' : undefined,
+      );
     } catch (caught: unknown) {
       if (caught instanceof ApiError) {
         setError(caught.message);
@@ -374,7 +376,13 @@ export function App(): React.JSX.Element {
                 {characterCount.toLocaleString()} / 20,000 characters
               </span>
               <div className="action-row">
-                <button type="button" onClick={() => { void handleImageExtract(); }} disabled={isExtracting}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleImageExtract();
+                  }}
+                  disabled={isExtracting}
+                >
                   {isExtracting ? 'Extracting…' : 'Extract text from image'}
                 </button>
                 <button type="submit" disabled={isSubmitting}>

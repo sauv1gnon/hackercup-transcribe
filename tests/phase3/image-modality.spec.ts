@@ -1,16 +1,17 @@
-import { ExtractTextFromImage, type OcrProvider } from '@salinaral/application';
+import { ExtractTextFromImage, ProviderFailure, type OcrProvider } from '@salinaral/application';
+import { prepareImageForOcr } from '@salinaral/infrastructure';
 import { describe, expect, it } from 'vitest';
 
 class FakeOcrProvider implements OcrProvider {
-  public readonly calls: Array<{ buffer: Buffer; mimeType: string }> = [];
+  public readonly calls: { buffer: Buffer; mimeType: string }[] = [];
 
-  public async extractText(buffer: Buffer, mimeType: string): Promise<{
+  public async extractText(buffer: Buffer): Promise<{
     extractedText: string;
-    reviewRequired: boolean;
+    reviewRequired: true;
     reviewCues: readonly { kind: 'scientific_term'; startOffset: number; endOffset: number }[];
-    warnings: readonly string[];
+    warnings: readonly [];
   }> {
-    this.calls.push({ buffer, mimeType });
+    this.calls.push({ buffer, mimeType: 'image/png' });
     return {
       extractedText: 'Plants use sunlight to produce food.',
       reviewRequired: true,
@@ -27,9 +28,8 @@ describe('Phase 3 image modality', () => {
 
     const result = await useCase.execute({
       buffer: Buffer.from('fake-image-bytes'),
-      fileName: 'lesson.png',
       mimeType: 'image/png',
-      sizeBytes: Buffer.from('fake-image-bytes').length,
+      originalSizeBytes: Buffer.from('fake-image-bytes').length,
       width: 1200,
       height: 800,
     });
@@ -45,12 +45,45 @@ describe('Phase 3 image modality', () => {
     await expect(
       useCase.execute({
         buffer: Buffer.alloc(6 * 1024 * 1024),
-        fileName: 'lesson.png',
         mimeType: 'image/png',
-        sizeBytes: 6 * 1024 * 1024,
+        originalSizeBytes: 6 * 1024 * 1024,
         width: 5000,
         height: 5000,
       }),
     ).rejects.toMatchObject({ code: 'unsafe_image' });
+  });
+
+  it('rejects a declared MIME type that does not match the decoded image', async () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    await expect(prepareImageForOcr(png, 'image/jpeg')).rejects.toMatchObject({
+      code: 'unsafe_image',
+    });
+  });
+
+  it('maps empty provider text to a stable invalid-response failure', async () => {
+    const provider: OcrProvider = {
+      async extractText() {
+        return {
+          extractedText: '   ',
+          reviewRequired: true,
+          reviewCues: [],
+          warnings: [],
+        };
+      },
+    };
+
+    await expect(
+      new ExtractTextFromImage(provider).execute({
+        buffer: Buffer.from('validated-image'),
+        mimeType: 'image/png',
+        originalSizeBytes: 15,
+        width: 100,
+        height: 100,
+      }),
+    ).rejects.toBeInstanceOf(ProviderFailure);
   });
 });

@@ -1,8 +1,9 @@
 # API application boundary
 
-Phase 2 extends the Fastify API composition root and text-localisation route with structured
-educational output. Translation-only requests still use Google alone; educational requests add the
-OpenAI adapter and return requested teaching-pack sections.
+Phase 3 adds the separate multipart OCR route. It validates and sanitizes one image in memory,
+extracts text through Google Vision, returns a review-required draft, and releases image-buffer
+references when the request ends. The existing localisation route accepts only teacher-reviewed
+text.
 
 The API may depend on `domain`, `application`, `contracts`, and `infrastructure`. Business rules
 must not live here.

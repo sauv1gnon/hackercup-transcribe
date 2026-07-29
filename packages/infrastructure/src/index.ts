@@ -6,10 +6,16 @@ import {
   type OcrProvider,
   type TranslationProvider,
 } from '@salinaral/application';
-import { supportedLanguages, type LanguageCode, type TranslationRequest } from '@salinaral/domain';
+import {
+  DomainError,
+  supportedLanguages,
+  type LanguageCode,
+  type TranslationRequest,
+} from '@salinaral/domain';
 import { GoogleAuth } from 'google-auth-library';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
+import sharp from 'sharp';
 import { z } from 'zod';
 
 const educationModel = 'gpt-5.6-luna';
@@ -70,6 +76,7 @@ export interface OperationalEvent {
   readonly grade?: number;
   readonly subject?: string;
   readonly characterCount?: number;
+  readonly imageByteCount?: number;
 }
 
 export interface OperationalLogger {
@@ -221,25 +228,132 @@ export class GoogleTranslationProvider implements TranslationProvider {
   }
 }
 
-export class GoogleVisionOcrAdapter implements OcrProvider {
-  public async extractText(buffer: Buffer, mimeType: string, fileName: string): Promise<OcrExtraction> {
-    const normalizedName = fileName.trim().length > 0 ? fileName : 'uploaded-image';
-    const extractedText = `OCR draft for ${normalizedName}. Teacher review required before localisation.`;
+const supportedImageMimeTypes = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+} as const;
 
+export interface PreparedOcrImage {
+  readonly buffer: Buffer;
+  readonly mimeType: (typeof supportedImageMimeTypes)[keyof typeof supportedImageMimeTypes];
+  readonly width: number;
+  readonly height: number;
+}
+
+function imageMimeType(format: string | undefined): PreparedOcrImage['mimeType'] | undefined {
+  if (format === 'jpeg' || format === 'png' || format === 'webp') {
+    return supportedImageMimeTypes[format];
+  }
+  return undefined;
+}
+
+export async function prepareImageForOcr(
+  buffer: Buffer,
+  declaredMimeType: string,
+): Promise<PreparedOcrImage> {
+  try {
+    const image = sharp(buffer, {
+      failOn: 'error',
+      limitInputPixels: 4000 * 4000,
+      sequentialRead: true,
+    });
+    const metadata = await image.metadata();
+    const mimeType = imageMimeType(metadata.format);
+
+    if (
+      mimeType === undefined ||
+      mimeType !== declaredMimeType ||
+      metadata.width === undefined ||
+      metadata.height === undefined ||
+      metadata.width < 1 ||
+      metadata.height < 1 ||
+      metadata.width > 4000 ||
+      metadata.height > 4000
+    ) {
+      throw new DomainError('unsafe_image');
+    }
+
+    const sanitizedBuffer = await image.rotate().toBuffer();
     return {
-      extractedText,
-      reviewRequired: true,
-      reviewCues: [
-        {
-          kind: 'scientific_term',
-          startOffset: 0,
-          endOffset: Math.min(extractedText.length, 20),
-        },
-      ],
-      warnings: [
-        `The text is an OCR draft and should be checked before classroom use. MIME type: ${mimeType}.`,
-      ],
+      buffer: sanitizedBuffer,
+      mimeType,
+      width: metadata.width,
+      height: metadata.height,
     };
+  } catch (error: unknown) {
+    if (error instanceof DomainError) {
+      throw error;
+    }
+    throw new DomainError('unsafe_image');
+  }
+}
+
+function visionTextFrom(response: unknown): string | undefined {
+  if (typeof response !== 'object' || response === null || !('responses' in response)) {
+    return undefined;
+  }
+  const responses = Reflect.get(response, 'responses');
+  if (!Array.isArray(responses) || responses.length !== 1) {
+    return undefined;
+  }
+  const first = responses[0];
+  if (typeof first !== 'object' || first === null || 'error' in first) {
+    return undefined;
+  }
+  const annotation = Reflect.get(first, 'fullTextAnnotation');
+  if (typeof annotation !== 'object' || annotation === null || !('text' in annotation)) {
+    return undefined;
+  }
+  const text = Reflect.get(annotation, 'text');
+  return typeof text === 'string' ? text : undefined;
+}
+
+export class GoogleVisionOcrAdapter implements OcrProvider {
+  private readonly authentication = new GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+
+  public async extractText(buffer: Buffer): Promise<OcrExtraction> {
+    try {
+      const client = await this.authentication.getClient();
+      const response = await client.request<unknown>({
+        url: 'https://vision.googleapis.com/v1/images:annotate',
+        method: 'POST',
+        data: {
+          requests: [
+            {
+              image: {
+                content: buffer.toString('base64'),
+              },
+              features: [
+                {
+                  type: 'DOCUMENT_TEXT_DETECTION',
+                  maxResults: 1,
+                },
+              ],
+            },
+          ],
+        },
+        timeout: 20_000,
+      });
+      const extractedText = visionTextFrom(response.data);
+      if (extractedText === undefined || extractedText.trim().length === 0) {
+        throw new ProviderFailure('invalid_response', 'google');
+      }
+
+      return {
+        extractedText,
+        reviewRequired: true,
+        reviewCues: [],
+        warnings: [],
+      };
+    } catch (error: unknown) {
+      if (error instanceof ProviderFailure) {
+        throw error;
+      }
+      throw providerFailureFrom(error);
+    }
   }
 }
 

@@ -15,12 +15,12 @@ import {
   GoogleTranslationProvider,
   GoogleVisionOcrAdapter,
   OpenAIEducationAdapter,
+  prepareImageForOcr,
   type OperationalEvent,
   type OperationalLogger,
   type RuntimeConfig,
 } from '@salinaral/infrastructure';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
-import { imageSize } from 'image-size';
 import { randomUUID } from 'node:crypto';
 
 function requestId(): string {
@@ -91,7 +91,11 @@ function domainProblem(error: DomainError, identifier: string): Problem {
   );
 }
 
-function providerProblem(error: ProviderFailure, identifier: string): Problem {
+function providerProblem(
+  error: ProviderFailure,
+  identifier: string,
+  operation: 'localisation' | 'ocr' = 'localisation',
+): Problem {
   if (error.code === 'timeout') {
     return createProblem(
       identifier,
@@ -116,9 +120,11 @@ function providerProblem(error: ProviderFailure, identifier: string): Problem {
     identifier,
     503,
     'service-unavailable',
-    error.providerAlias === 'openai'
-      ? 'Lesson drafting is temporarily unavailable'
-      : 'Translation is temporarily unavailable',
+    operation === 'ocr'
+      ? 'Image text extraction is temporarily unavailable'
+      : error.providerAlias === 'openai'
+        ? 'Lesson drafting is temporarily unavailable'
+        : 'Translation is temporarily unavailable',
     'Try again later.',
   );
 }
@@ -129,6 +135,47 @@ function errorStatus(error: unknown): number | undefined {
     return typeof statusCode === 'number' ? statusCode : undefined;
   }
   return undefined;
+}
+
+function frameworkProblem(error: unknown, identifier: string): Problem {
+  const status = errorStatus(error);
+  if (status === 400) {
+    return createProblem(
+      identifier,
+      400,
+      'invalid-request',
+      'Invalid request',
+      'Check the submitted fields and try again.',
+    );
+  }
+  if (status === 413) {
+    return createProblem(
+      identifier,
+      413,
+      'content-too-large',
+      'Content too large',
+      'Reduce the submitted content and try again.',
+    );
+  }
+  if (status === 415) {
+    return createProblem(
+      identifier,
+      415,
+      'unsupported-media-type',
+      'Unsupported media type',
+      'Submit the content in one of the supported formats.',
+    );
+  }
+  if (status === 429) {
+    return createProblem(
+      identifier,
+      429,
+      'rate-limited',
+      'Too many requests',
+      'Wait before trying again.',
+    );
+  }
+  return createProblem(identifier, 500, 'internal', 'Something went wrong', 'Try again later.');
 }
 
 export async function buildApp(
@@ -168,21 +215,11 @@ export async function buildApp(
   });
 
   app.setErrorHandler((error, request, reply) => {
-    const status = errorStatus(error) === 429 ? 429 : 500;
     const routeUrl = request.routeOptions.url ?? '';
-    const problem =
-      status === 429
-        ? createProblem(
-            request.id,
-            429,
-            'rate-limited',
-            'Too many requests',
-            'Wait before trying again.',
-          )
-        : createProblem(request.id, 500, 'internal', 'Something went wrong', 'Try again later.');
+    const problem = frameworkProblem(error, request.id);
 
     record(logger, {
-      severity: status === 429 ? 'warn' : 'error',
+      severity: problem.status < 500 ? 'warn' : 'error',
       requestId: request.id,
       operation: routeUrl.includes('localisations')
         ? 'localisation'
@@ -192,8 +229,13 @@ export async function buildApp(
             ? 'languages'
             : 'health',
       duration: 0,
-      resultCategory: status === 429 ? 'rate_limited' : 'internal_error',
-      httpStatus: status,
+      resultCategory:
+        problem.status === 429
+          ? 'rate_limited'
+          : problem.status < 500
+            ? 'invalid_request'
+            : 'internal_error',
+      httpStatus: problem.status,
     });
     sendProblem(reply, problem);
   });
@@ -380,86 +422,160 @@ export async function buildApp(
     },
   );
 
-  app.post('/api/v1/ocr/extractions', async (request, reply) => {
-    const started = performance.now();
-    reply.header('X-Request-Id', request.id);
+  app.post(
+    '/api/v1/ocr/extractions',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
+      const started = performance.now();
+      reply.header('X-Request-Id', request.id);
+      let originalBuffer: Buffer | undefined;
+      let sanitizedBuffer: Buffer | undefined;
 
-    const file = await request.file();
-    if (file === undefined) {
-      const problem = createProblem(
-        request.id,
-        400,
-        'invalid-request',
-        'Check the image upload',
-        'Select one JPEG, PNG, or WebP image to extract text.',
-      );
-      record(logger, {
-        severity: 'warn',
-        requestId: request.id,
-        operation: 'ocr',
-        duration: Math.round(performance.now() - started),
-        resultCategory: 'invalid_request',
-        httpStatus: 400,
-      });
-      sendProblem(reply, problem);
-      return;
-    }
+      try {
+        if (!request.isMultipart()) {
+          const problem = createProblem(
+            request.id,
+            415,
+            'unsupported-media-type',
+            'Unsupported media type',
+            'Submit one JPEG, PNG, or WebP image as multipart form data.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'unsupported_media_type',
+            httpStatus: 415,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
 
-    try {
-      const buffer = await file.toBuffer();
-      const dimensions = imageSize(buffer);
-      const result = await extractTextFromImage.execute({
-        buffer,
-        fileName: file.filename ?? 'uploaded-image',
-        mimeType: file.mimetype ?? 'application/octet-stream',
-        sizeBytes: buffer.length,
-        width: dimensions.width ?? 0,
-        height: dimensions.height ?? 0,
-      });
+        const file = await request.file();
+        if (file === undefined || file.fieldname !== 'file') {
+          const problem = createProblem(
+            request.id,
+            400,
+            'invalid-request',
+            'Check the image upload',
+            'Select one JPEG, PNG, or WebP image to extract text.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'invalid_request',
+            httpStatus: 400,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
 
-      const response = {
-        requestId: request.id,
-        extractedText: result.extractedText,
-        reviewRequired: result.reviewRequired,
-        reviewCues: result.reviewCues,
-        warnings: result.warnings,
-      };
-      const parsed = ocrExtractionResponseSchema.safeParse(response);
-      if (!parsed.success) {
-        throw new Error('ocr-response-validation-failed');
-      }
-      record(logger, {
-        severity: 'info',
-        requestId: request.id,
-        operation: 'ocr',
-        duration: Math.round(performance.now() - started),
-        resultCategory: 'success',
-        httpStatus: 200,
-      });
-      return response;
-    } catch (error: unknown) {
-      if (error instanceof DomainError) {
-        const problem = createProblem(
-          request.id,
-          422,
-          'unsafe-image',
-          'Image cannot be processed',
-          'Use one valid JPEG, PNG, or WebP image within the documented limits.',
-        );
+        originalBuffer = await file.toBuffer();
+        const originalSizeBytes = originalBuffer.length;
+        const image = await prepareImageForOcr(originalBuffer, file.mimetype);
+        sanitizedBuffer = image.buffer;
+        const result = await extractTextFromImage.execute({
+          buffer: sanitizedBuffer,
+          mimeType: image.mimeType,
+          originalSizeBytes,
+          width: image.width,
+          height: image.height,
+        });
+
+        const parsed = ocrExtractionResponseSchema.safeParse({
+          requestId: request.id,
+          extractedText: result.extractedText,
+          reviewRequired: result.reviewRequired,
+          reviewCues: result.reviewCues,
+          warnings: result.warnings,
+        });
+        if (!parsed.success) {
+          throw new ProviderFailure('invalid_response', 'google');
+        }
         record(logger, {
-          severity: 'warn',
+          severity: 'info',
           requestId: request.id,
           operation: 'ocr',
           duration: Math.round(performance.now() - started),
-          resultCategory: error.code,
-          httpStatus: 422,
+          resultCategory: 'success',
+          httpStatus: 200,
+          providerAlias: 'google',
+          imageByteCount: originalSizeBytes,
         });
-        sendProblem(reply, problem);
-        return;
+        return parsed.data;
+      } catch (error: unknown) {
+        const statusCode = errorStatus(error);
+        if (statusCode === 413) {
+          const problem = createProblem(
+            request.id,
+            413,
+            'content-too-large',
+            'Content too large',
+            'Use an image no larger than 5 MiB.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'content_too_large',
+            httpStatus: 413,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        if (error instanceof DomainError) {
+          const problem = createProblem(
+            request.id,
+            422,
+            'unsafe-image',
+            'Image cannot be processed',
+            'Use one valid JPEG, PNG, or WebP image within the documented limits.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: error.code,
+            httpStatus: 422,
+            ...(originalBuffer === undefined ? {} : { imageByteCount: originalBuffer.length }),
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        if (error instanceof ProviderFailure) {
+          const problem = providerProblem(error, request.id, 'ocr');
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: error.code,
+            httpStatus: problem.status,
+            providerAlias: error.providerAlias,
+            ...(originalBuffer === undefined ? {} : { imageByteCount: originalBuffer.length }),
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        throw error;
+      } finally {
+        originalBuffer?.fill(0);
+        sanitizedBuffer?.fill(0);
       }
-      throw error;
-    }
-  });
+    },
+  );
 
   return app;
 }

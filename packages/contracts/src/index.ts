@@ -37,11 +37,12 @@ export const outputKindSchema = z.enum([
 ]);
 
 export const ocrReviewCueKindSchema = z.enum([
-  'scientific_term',
-  'low_ocr_confidence',
+  'low_confidence',
   'number',
   'date',
+  'equation',
   'proper_noun',
+  'scientific_term',
 ]);
 
 export const glossaryEntrySchema = z.object({
@@ -118,17 +119,18 @@ export const ocrExtractionResponseSchema = z.object({
     .max(64)
     .regex(/^[A-Za-z0-9_-]+$/),
   extractedText: z.string().min(1).max(20_000),
-  reviewRequired: z.boolean(),
+  reviewRequired: z.literal(true),
   reviewCues: z
     .array(
       z.object({
         kind: ocrReviewCueKindSchema,
         startOffset: z.number().int().min(0),
-        endOffset: z.number().int().min(0),
+        endOffset: z.number().int().min(1),
+        confidence: z.number().min(0).max(1).optional(),
       }),
     )
     .max(50),
-  warnings: z.array(z.string().min(1).max(300)),
+  warnings: z.array(translationWarningSchema),
 });
 
 export const problemSchema = z.object({

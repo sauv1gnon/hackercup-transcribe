@@ -32,32 +32,38 @@ export interface TranslationDraft {
   readonly provider: 'google';
 }
 
-export type OcrReviewCueKind = 'scientific_term' | 'low_ocr_confidence' | 'number' | 'date' | 'proper_noun';
+export type OcrReviewCueKind =
+  'low_confidence' | 'number' | 'date' | 'equation' | 'proper_noun' | 'scientific_term';
 
 export interface OcrReviewCue {
   readonly kind: OcrReviewCueKind;
   readonly startOffset: number;
   readonly endOffset: number;
+  readonly confidence?: number;
+}
+
+export interface OcrWarning {
+  readonly code: 'low_ocr_confidence';
+  readonly message: string;
 }
 
 export interface OcrExtraction {
   readonly extractedText: string;
-  readonly reviewRequired: boolean;
+  readonly reviewRequired: true;
   readonly reviewCues: readonly OcrReviewCue[];
-  readonly warnings: readonly string[];
+  readonly warnings: readonly OcrWarning[];
 }
 
 export interface OcrInput {
   readonly buffer: Buffer;
-  readonly fileName: string;
   readonly mimeType: string;
-  readonly sizeBytes: number;
+  readonly originalSizeBytes: number;
   readonly width: number;
   readonly height: number;
 }
 
 export interface OcrProvider {
-  extractText(buffer: Buffer, mimeType: string, fileName: string): Promise<OcrExtraction>;
+  extractText(buffer: Buffer): Promise<OcrExtraction>;
 }
 
 export type LocalisationOutputKind =
@@ -94,28 +100,40 @@ export class ExtractTextFromImage {
 
   public async execute(input: OcrInput): Promise<OcrExtraction> {
     const acceptedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-    const acceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
-    const fileName = input.fileName.toLowerCase();
 
-    if (!acceptedMimeTypes.has(input.mimeType) || !acceptedExtensions.some((extension) => fileName.endsWith(extension))) {
+    if (!acceptedMimeTypes.has(input.mimeType)) {
       throw new DomainError('unsafe_image');
     }
 
-    if (input.buffer.length === 0 || input.buffer.length !== input.sizeBytes) {
+    if (input.buffer.length === 0 || input.originalSizeBytes <= 0) {
       throw new DomainError('unsafe_image');
     }
 
-    if (input.sizeBytes > 5 * 1024 * 1024 || input.width <= 0 || input.height <= 0 || input.width > 4000 || input.height > 4000) {
+    if (
+      input.originalSizeBytes > 5 * 1024 * 1024 ||
+      input.width <= 0 ||
+      input.height <= 0 ||
+      input.width > 4000 ||
+      input.height > 4000
+    ) {
       throw new DomainError('unsafe_image');
     }
 
-    const extraction = await this.provider.extractText(input.buffer, input.mimeType, input.fileName);
+    const extraction = await this.provider.extractText(input.buffer);
+    const extractedText = extraction.extractedText
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n')
+      .trim();
 
-    if (extraction.extractedText.trim().length === 0 || [...extraction.extractedText].length > 20_000) {
-      throw new DomainError('unsafe_image');
+    if (extractedText.length === 0 || [...extractedText].length > 20_000) {
+      throw new ProviderFailure('invalid_response', 'google');
     }
 
-    return extraction;
+    return {
+      ...extraction,
+      extractedText,
+      reviewRequired: true,
+    };
   }
 }
 
