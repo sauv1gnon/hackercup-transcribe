@@ -1,7 +1,8 @@
 # Web application boundary
 
-Phase 1 contains the React teacher text workspace. It lets a teacher choose lesson context, submit
-plain text, and compare a returned translation with the source.
+Phase 3 lets a teacher select one JPEG, PNG, or WebP worksheet image and place its extracted text
+into the existing editable source field. OCR does not trigger localisation; the teacher reviews the
+text and submits it separately. Source and result edits remain only in browser memory.
 
 The browser may depend on shared transport contracts. It must not import backend domain,
 application, or infrastructure modules.

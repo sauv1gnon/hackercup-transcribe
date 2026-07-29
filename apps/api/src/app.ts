@@ -1,9 +1,11 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import { LocaliseText, ProviderFailure } from '@salinaral/application';
+import { ExtractTextFromImage, LocaliseLesson, ProviderFailure } from '@salinaral/application';
 import {
   localisationRequestSchema,
+  ocrExtractionResponseSchema,
   type LocalisationResponse,
   type Problem,
 } from '@salinaral/contracts';
@@ -11,6 +13,9 @@ import { createTranslationRequest, DomainError, supportedLanguages } from '@sali
 import {
   ConsoleOperationalLogger,
   GoogleTranslationProvider,
+  GoogleVisionOcrAdapter,
+  OpenAIEducationAdapter,
+  prepareImageForOcr,
   type OperationalEvent,
   type OperationalLogger,
   type RuntimeConfig,
@@ -86,7 +91,11 @@ function domainProblem(error: DomainError, identifier: string): Problem {
   );
 }
 
-function providerProblem(error: ProviderFailure, identifier: string): Problem {
+function providerProblem(
+  error: ProviderFailure,
+  identifier: string,
+  operation: 'localisation' | 'ocr' = 'localisation',
+): Problem {
   if (error.code === 'timeout') {
     return createProblem(
       identifier,
@@ -111,7 +120,11 @@ function providerProblem(error: ProviderFailure, identifier: string): Problem {
     identifier,
     503,
     'service-unavailable',
-    'Translation is temporarily unavailable',
+    operation === 'ocr'
+      ? 'Image text extraction is temporarily unavailable'
+      : error.providerAlias === 'openai'
+        ? 'Lesson drafting is temporarily unavailable'
+        : 'Translation is temporarily unavailable',
     'Try again later.',
   );
 }
@@ -124,6 +137,47 @@ function errorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+function frameworkProblem(error: unknown, identifier: string): Problem {
+  const status = errorStatus(error);
+  if (status === 400) {
+    return createProblem(
+      identifier,
+      400,
+      'invalid-request',
+      'Invalid request',
+      'Check the submitted fields and try again.',
+    );
+  }
+  if (status === 413) {
+    return createProblem(
+      identifier,
+      413,
+      'content-too-large',
+      'Content too large',
+      'Reduce the submitted content and try again.',
+    );
+  }
+  if (status === 415) {
+    return createProblem(
+      identifier,
+      415,
+      'unsupported-media-type',
+      'Unsupported media type',
+      'Submit the content in one of the supported formats.',
+    );
+  }
+  if (status === 429) {
+    return createProblem(
+      identifier,
+      429,
+      'rate-limited',
+      'Too many requests',
+      'Wait before trying again.',
+    );
+  }
+  return createProblem(identifier, 500, 'internal', 'Something went wrong', 'Try again later.');
+}
+
 export async function buildApp(
   config: RuntimeConfig,
   logger: OperationalLogger = new ConsoleOperationalLogger(),
@@ -131,8 +185,16 @@ export async function buildApp(
   const app = Fastify({
     logger: false,
     bodyLimit: 80_000,
-    requestTimeout: 30_000,
+    requestTimeout: 55_000,
     genReqId: requestId,
+  });
+
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1,
+      parts: 3,
+    },
   });
 
   await app.register(helmet, {
@@ -153,30 +215,27 @@ export async function buildApp(
   });
 
   app.setErrorHandler((error, request, reply) => {
-    const status = errorStatus(error) === 429 ? 429 : 500;
     const routeUrl = request.routeOptions.url ?? '';
-    const problem =
-      status === 429
-        ? createProblem(
-            request.id,
-            429,
-            'rate-limited',
-            'Too many requests',
-            'Wait before trying again.',
-          )
-        : createProblem(request.id, 500, 'internal', 'Something went wrong', 'Try again later.');
+    const problem = frameworkProblem(error, request.id);
 
     record(logger, {
-      severity: status === 429 ? 'warn' : 'error',
+      severity: problem.status < 500 ? 'warn' : 'error',
       requestId: request.id,
       operation: routeUrl.includes('localisations')
         ? 'localisation'
-        : routeUrl.includes('languages')
-          ? 'languages'
-          : 'health',
+        : routeUrl.includes('ocr')
+          ? 'ocr'
+          : routeUrl.includes('languages')
+            ? 'languages'
+            : 'health',
       duration: 0,
-      resultCategory: status === 429 ? 'rate_limited' : 'internal_error',
-      httpStatus: status,
+      resultCategory:
+        problem.status === 429
+          ? 'rate_limited'
+          : problem.status < 500
+            ? 'invalid_request'
+            : 'internal_error',
+      httpStatus: problem.status,
     });
     sendProblem(reply, problem);
   });
@@ -214,9 +273,11 @@ export async function buildApp(
     return { languages: supportedLanguages };
   });
 
-  const localiseText = new LocaliseText(
+  const localiseLesson = new LocaliseLesson(
     new GoogleTranslationProvider(config.googleCloudProject, config.googleCloudLocation),
+    new OpenAIEducationAdapter(config.openAiApiKey),
   );
+  const extractTextFromImage = new ExtractTextFromImage(new GoogleVisionOcrAdapter());
 
   app.post(
     '/api/v1/localisations',
@@ -284,16 +345,39 @@ export async function buildApp(
       }
 
       try {
-        const draft = await localiseText.execute(translationRequest);
+        const draft = await localiseLesson.execute(translationRequest, parsed.data.outputs);
         const response: LocalisationResponse = {
           requestId: request.id,
           sourceText: translationRequest.text,
           targetLanguage: translationRequest.targetLanguage,
           teachingPack: {
-            faithfulTranslation: draft.faithfulTranslation,
+            faithfulTranslation: draft.teachingPack.faithfulTranslation,
+            ...(draft.teachingPack.simplifiedExplanation === undefined
+              ? {}
+              : { simplifiedExplanation: draft.teachingPack.simplifiedExplanation }),
+            ...(draft.teachingPack.glossary === undefined
+              ? {}
+              : {
+                  glossary: draft.teachingPack.glossary.map((entry) => ({
+                    sourceTerm: entry.sourceTerm,
+                    localisedTerm: entry.localisedTerm,
+                    explanation: entry.explanation,
+                  })),
+                }),
+            ...(draft.teachingPack.questions === undefined
+              ? {}
+              : {
+                  questions: draft.teachingPack.questions.map((question) => ({
+                    type: question.type,
+                    question: question.question,
+                  })),
+                }),
           },
           provenance: {
-            translation: draft.provider,
+            translation: draft.translationProvider,
+            ...(draft.educationProvider === undefined
+              ? {}
+              : { education: draft.educationProvider }),
           },
           reviewStatus: 'ai_generated',
           warnings: [],
@@ -305,7 +389,7 @@ export async function buildApp(
           duration: Math.round(performance.now() - started),
           resultCategory: 'success',
           httpStatus: 200,
-          providerAlias: 'google',
+          providerAlias: draft.educationProvider ?? draft.translationProvider,
           sourceLanguage: translationRequest.sourceLanguage,
           targetLanguage: translationRequest.targetLanguage,
           grade: translationRequest.gradeLevel,
@@ -323,7 +407,7 @@ export async function buildApp(
             duration: Math.round(performance.now() - started),
             resultCategory: error.code,
             httpStatus: problem.status,
-            providerAlias: 'google',
+            providerAlias: error.providerAlias,
             sourceLanguage: translationRequest.sourceLanguage,
             targetLanguage: translationRequest.targetLanguage,
             grade: translationRequest.gradeLevel,
@@ -334,6 +418,161 @@ export async function buildApp(
           return;
         }
         throw error;
+      }
+    },
+  );
+
+  app.post(
+    '/api/v1/ocr/extractions',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
+      const started = performance.now();
+      reply.header('X-Request-Id', request.id);
+      let originalBuffer: Buffer | undefined;
+      let sanitizedBuffer: Buffer | undefined;
+
+      try {
+        if (!request.isMultipart()) {
+          const problem = createProblem(
+            request.id,
+            415,
+            'unsupported-media-type',
+            'Unsupported media type',
+            'Submit one JPEG, PNG, or WebP image as multipart form data.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'unsupported_media_type',
+            httpStatus: 415,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+
+        const file = await request.file();
+        if (file === undefined || file.fieldname !== 'file') {
+          const problem = createProblem(
+            request.id,
+            400,
+            'invalid-request',
+            'Check the image upload',
+            'Select one JPEG, PNG, or WebP image to extract text.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'invalid_request',
+            httpStatus: 400,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+
+        originalBuffer = await file.toBuffer();
+        const originalSizeBytes = originalBuffer.length;
+        const image = await prepareImageForOcr(originalBuffer, file.mimetype);
+        sanitizedBuffer = image.buffer;
+        const result = await extractTextFromImage.execute({
+          buffer: sanitizedBuffer,
+          mimeType: image.mimeType,
+          originalSizeBytes,
+          width: image.width,
+          height: image.height,
+        });
+
+        const parsed = ocrExtractionResponseSchema.safeParse({
+          requestId: request.id,
+          extractedText: result.extractedText,
+          reviewRequired: result.reviewRequired,
+          reviewCues: result.reviewCues,
+          warnings: result.warnings,
+        });
+        if (!parsed.success) {
+          throw new ProviderFailure('invalid_response', 'google');
+        }
+        record(logger, {
+          severity: 'info',
+          requestId: request.id,
+          operation: 'ocr',
+          duration: Math.round(performance.now() - started),
+          resultCategory: 'success',
+          httpStatus: 200,
+          providerAlias: 'google',
+          imageByteCount: originalSizeBytes,
+        });
+        return parsed.data;
+      } catch (error: unknown) {
+        const statusCode = errorStatus(error);
+        if (statusCode === 413) {
+          const problem = createProblem(
+            request.id,
+            413,
+            'content-too-large',
+            'Content too large',
+            'Use an image no larger than 5 MiB.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: 'content_too_large',
+            httpStatus: 413,
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        if (error instanceof DomainError) {
+          const problem = createProblem(
+            request.id,
+            422,
+            'unsafe-image',
+            'Image cannot be processed',
+            'Use one valid JPEG, PNG, or WebP image within the documented limits.',
+          );
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: error.code,
+            httpStatus: 422,
+            ...(originalBuffer === undefined ? {} : { imageByteCount: originalBuffer.length }),
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        if (error instanceof ProviderFailure) {
+          const problem = providerProblem(error, request.id, 'ocr');
+          record(logger, {
+            severity: 'warn',
+            requestId: request.id,
+            operation: 'ocr',
+            duration: Math.round(performance.now() - started),
+            resultCategory: error.code,
+            httpStatus: problem.status,
+            providerAlias: error.providerAlias,
+            ...(originalBuffer === undefined ? {} : { imageByteCount: originalBuffer.length }),
+          });
+          sendProblem(reply, problem);
+          return;
+        }
+        throw error;
+      } finally {
+        originalBuffer?.fill(0);
+        sanitizedBuffer?.fill(0);
       }
     },
   );

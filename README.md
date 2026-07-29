@@ -1,7 +1,7 @@
 # SalinAral
 
-SalinAral is a planned teacher-facing lesson-localisation workspace for Philippine classrooms. It
-will turn English or Filipino learning material into an editable teaching pack containing a faithful
+SalinAral is a teacher-facing lesson-localisation workspace for Philippine classrooms. It turns
+English or Filipino learning material into an editable teaching pack containing a faithful
 translation, a grade-appropriate explanation, a glossary, and comprehension questions in a selected
 Philippine language.
 
@@ -11,12 +11,14 @@ claim of Department of Education approval.
 
 ## Current state
 
-**Phase 0 is complete and remains the current gated state. Phase 1 has not started.**
+**Phase 3 is complete and remains the current gated state. Phase 4 has not started.**
 
-This repository currently contains the project specifications, architecture boundaries, security
-policy, quality gates, and empty ownership boundaries needed for implementation. It intentionally
-contains no React screen, HTTP route, cloud adapter, OCR pipeline, or generated teaching behavior.
-See [delivery status](docs/delivery/status.json) and the [roadmap](docs/delivery/roadmap.md).
+The implemented workspace accepts teacher-entered text or one validated JPEG, PNG, or WebP image.
+Image bytes are decoded and sanitized in memory, Google Vision extracts a transient OCR draft, and
+the teacher reviews that text before requesting localisation and educational output. All generated
+material is an AI-assisted draft—review before classroom use. See
+[delivery status](docs/delivery/status.json), the [roadmap](docs/delivery/roadmap.md), and
+[Phase 3 evidence](docs/delivery/phase-3-evidence.md).
 
 ## Start here
 
@@ -30,10 +32,10 @@ The original research and recommendation brief remains in
 [`Hackercup Transcribe.md`](Hackercup%20Transcribe.md). It is source material, not the executable
 contract.
 
-## Local foundation setup
+## Local setup
 
-Use Node.js 24.18.0, as pinned in `.nvmrc` and `.node-version`. No credentials are needed for
-Phase 0.
+Use Node.js 24.18.0, as pinned in `.nvmrc` and `.node-version`. No credentials are needed for the
+deterministic quality checks.
 
 ```sh
 npm ci
@@ -48,8 +50,8 @@ Credentials backed by a least-privilege service account.
 
 | Command                | Purpose                                           |
 | ---------------------- | ------------------------------------------------- |
-| `npm run check`        | Run every deterministic Phase 0 quality gate      |
-| `npm test`             | Run foundation contract tests                     |
+| `npm run check`        | Run every deterministic repository quality gate   |
+| `npm test`             | Run contract and implementation tests             |
 | `npm run spec:lint`    | Validate the OpenAPI document                     |
 | `npm run phase:check`  | Reject phase leakage and dotenv files             |
 | `npm run secrets:scan` | Scan tracked project content for likely secrets   |
@@ -59,14 +61,10 @@ Credentials backed by a least-privilege service account.
 ## Repository map
 
 ```text
-apps/            Reserved application composition roots
-packages/        Reserved clean-architecture modules
+apps/            API and teacher-facing web application
+packages/        Domain, application, contract, and infrastructure modules
 specs/           Machine-readable API, module, runtime, and evaluation contracts
 docs/            Product, architecture, delivery, security, quality, and AI-agent context
 scripts/         Repository policy checks
-tests/           Executable Phase 0 contract checks
+tests/           Executable acceptance and contract checks
 ```
-
-Implementation dependencies for React, Fastify, cloud providers, and AI providers are deliberately
-deferred until Phase 1 or their owning phase. Phase 0 installs only the JavaScript tooling required
-to validate this foundation.

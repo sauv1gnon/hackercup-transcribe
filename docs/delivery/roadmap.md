@@ -5,7 +5,7 @@ earlier phase is complete.
 
 ## Phase 0 — Specification and project foundation
 
-**Status:** Complete. Phase 1 remains closed.
+**Status:** Complete.
 
 **Purpose:** make implementation deterministic, modular, secure, and efficient for a human/AI
 hackathon team.
@@ -29,7 +29,7 @@ Exit condition:
 
 ## Phase 1 — Text translation foundation
 
-**Status:** In progress.
+**Status:** Complete.
 
 Planned work:
 
@@ -48,7 +48,7 @@ Exit condition:
 
 ## Phase 2 — Educational output
 
-**Status:** Not started.
+**Status:** Complete.
 
 Implement grade and subject context, structured educational transformation, complete teaching-pack
 output, result editing, and provider-output validation.
@@ -59,14 +59,16 @@ Exit condition:
 
 ## Phase 3 — Image modality
 
-**Status:** Not started.
+**Status:** Complete.
 
-Implement image validation, in-memory OCR, teacher correction, and the handoff to the existing text
-pipeline.
+Implemented decoded image validation, metadata removal, in-memory Google Vision OCR, teacher
+correction, and the handoff to the existing text pipeline.
 
 Exit condition:
 
 > A photographed worksheet produces editable extracted text and, after review, localized content.
+
+Evidence is recorded in `phase-3-evidence.md`.
 
 ## Phase 4 — Trust and demonstration
 

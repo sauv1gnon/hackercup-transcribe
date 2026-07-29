@@ -1,7 +1,9 @@
 # API application boundary
 
-Phase 1 contains the Fastify API composition root and the health, language, and text-localisation
-routes.
+Phase 3 adds the separate multipart OCR route. It validates and sanitizes one image in memory,
+extracts text through Google Vision, returns a review-required draft, and releases image-buffer
+references when the request ends. The existing localisation route accepts only teacher-reviewed
+text.
 
 The API may depend on `domain`, `application`, `contracts`, and `infrastructure`. Business rules
 must not live here.

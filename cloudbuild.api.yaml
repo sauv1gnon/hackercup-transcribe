@@ -5,7 +5,7 @@ steps:
       - --file
       - Dockerfile.api
       - --tag
-      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase1
+      - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase2
       - .
 images:
-  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase1
+  - asia-southeast1-docker.pkg.dev/$PROJECT_ID/salinaral/api:phase2
