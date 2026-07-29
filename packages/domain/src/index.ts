@@ -39,7 +39,8 @@ export type DomainErrorCode =
   | 'unsupported_language_pair'
   | 'same_language'
   | 'invalid_lesson_context'
-  | 'invalid_educational_output';
+  | 'invalid_educational_output'
+  | 'unsafe_image';
 
 export class DomainError extends Error {
   public override readonly name = 'DomainError';

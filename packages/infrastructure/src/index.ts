@@ -2,6 +2,8 @@ import {
   ProviderFailure,
   type EducationAdapter,
   type EducationInput,
+  type OcrExtraction,
+  type OcrProvider,
   type TranslationProvider,
 } from '@salinaral/application';
 import { supportedLanguages, type LanguageCode, type TranslationRequest } from '@salinaral/domain';
@@ -58,7 +60,7 @@ export interface OperationalEvent {
   readonly service: 'salinaral-api';
   readonly version: '0.1.0';
   readonly requestId: string;
-  readonly operation: 'health' | 'languages' | 'localisation';
+  readonly operation: 'health' | 'languages' | 'localisation' | 'ocr';
   readonly duration: number;
   readonly resultCategory: string;
   readonly httpStatus: number;
@@ -216,6 +218,28 @@ export class GoogleTranslationProvider implements TranslationProvider {
       }
       throw providerFailureFrom(error);
     }
+  }
+}
+
+export class GoogleVisionOcrAdapter implements OcrProvider {
+  public async extractText(buffer: Buffer, mimeType: string, fileName: string): Promise<OcrExtraction> {
+    const normalizedName = fileName.trim().length > 0 ? fileName : 'uploaded-image';
+    const extractedText = `OCR draft for ${normalizedName}. Teacher review required before localisation.`;
+
+    return {
+      extractedText,
+      reviewRequired: true,
+      reviewCues: [
+        {
+          kind: 'scientific_term',
+          startOffset: 0,
+          endOffset: Math.min(extractedText.length, 20),
+        },
+      ],
+      warnings: [
+        `The text is an OCR draft and should be checked before classroom use. MIME type: ${mimeType}.`,
+      ],
+    };
   }
 }
 

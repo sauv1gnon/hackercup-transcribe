@@ -32,6 +32,34 @@ export interface TranslationDraft {
   readonly provider: 'google';
 }
 
+export type OcrReviewCueKind = 'scientific_term' | 'low_ocr_confidence' | 'number' | 'date' | 'proper_noun';
+
+export interface OcrReviewCue {
+  readonly kind: OcrReviewCueKind;
+  readonly startOffset: number;
+  readonly endOffset: number;
+}
+
+export interface OcrExtraction {
+  readonly extractedText: string;
+  readonly reviewRequired: boolean;
+  readonly reviewCues: readonly OcrReviewCue[];
+  readonly warnings: readonly string[];
+}
+
+export interface OcrInput {
+  readonly buffer: Buffer;
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface OcrProvider {
+  extractText(buffer: Buffer, mimeType: string, fileName: string): Promise<OcrExtraction>;
+}
+
 export type LocalisationOutputKind =
   'translation' | 'simplified_explanation' | 'glossary' | 'questions';
 
@@ -59,6 +87,36 @@ export interface LocalisationDraft {
   readonly teachingPack: TeachingPackDraft;
   readonly translationProvider: 'google';
   readonly educationProvider?: 'openai';
+}
+
+export class ExtractTextFromImage {
+  public constructor(private readonly provider: OcrProvider) {}
+
+  public async execute(input: OcrInput): Promise<OcrExtraction> {
+    const acceptedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    const acceptedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileName = input.fileName.toLowerCase();
+
+    if (!acceptedMimeTypes.has(input.mimeType) || !acceptedExtensions.some((extension) => fileName.endsWith(extension))) {
+      throw new DomainError('unsafe_image');
+    }
+
+    if (input.buffer.length === 0 || input.buffer.length !== input.sizeBytes) {
+      throw new DomainError('unsafe_image');
+    }
+
+    if (input.sizeBytes > 5 * 1024 * 1024 || input.width <= 0 || input.height <= 0 || input.width > 4000 || input.height > 4000) {
+      throw new DomainError('unsafe_image');
+    }
+
+    const extraction = await this.provider.extractText(input.buffer, input.mimeType, input.fileName);
+
+    if (extraction.extractedText.trim().length === 0 || [...extraction.extractedText].length > 20_000) {
+      throw new DomainError('unsafe_image');
+    }
+
+    return extraction;
+  }
 }
 
 export class LocaliseText {

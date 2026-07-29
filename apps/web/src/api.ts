@@ -1,10 +1,12 @@
 import {
   languageListResponseSchema,
   localisationResponseSchema,
+  ocrExtractionResponseSchema,
   problemSchema,
   type LanguageListResponse,
   type LocalisationRequest,
   type LocalisationResponse,
+  type OcrExtractionResponse,
 } from '@salinaral/contracts';
 
 const localApiBaseUrl = 'http://localhost:3000';
@@ -84,6 +86,22 @@ export async function createLocalisation(
   const parsed = localisationResponseSchema.safeParse(await response.json());
   if (!parsed.success) {
     throw new ApiError('The teaching pack could not be checked. Please try again.');
+  }
+  return parsed.data;
+}
+
+export async function extractTextFromImage(formData: FormData): Promise<OcrExtractionResponse> {
+  const response = await fetchWithDeadline('/api/v1/ocr/extractions', {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    throw await readError(response);
+  }
+
+  const parsed = ocrExtractionResponseSchema.safeParse(await response.json());
+  if (!parsed.success) {
+    throw new ApiError('The extracted text could not be checked. Please try again.');
   }
   return parsed.data;
 }

@@ -36,6 +36,14 @@ export const outputKindSchema = z.enum([
   'questions',
 ]);
 
+export const ocrReviewCueKindSchema = z.enum([
+  'scientific_term',
+  'low_ocr_confidence',
+  'number',
+  'date',
+  'proper_noun',
+]);
+
 export const glossaryEntrySchema = z.object({
   sourceTerm: z.string().min(1).max(200),
   localisedTerm: z.string().min(1).max(200),
@@ -103,6 +111,26 @@ export const localisationResponseSchema = z.object({
   warnings: z.array(translationWarningSchema),
 });
 
+export const ocrExtractionResponseSchema = z.object({
+  requestId: z
+    .string()
+    .min(8)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/),
+  extractedText: z.string().min(1).max(20_000),
+  reviewRequired: z.boolean(),
+  reviewCues: z
+    .array(
+      z.object({
+        kind: ocrReviewCueKindSchema,
+        startOffset: z.number().int().min(0),
+        endOffset: z.number().int().min(0),
+      }),
+    )
+    .max(50),
+  warnings: z.array(z.string().min(1).max(300)),
+});
+
 export const problemSchema = z.object({
   type: z.string(),
   title: z.string().min(1).max(120),
@@ -124,6 +152,7 @@ export type Language = z.infer<typeof languageSchema>;
 export type LanguageListResponse = z.infer<typeof languageListResponseSchema>;
 export type LocalisationRequest = z.infer<typeof localisationRequestSchema>;
 export type LocalisationResponse = z.infer<typeof localisationResponseSchema>;
+export type OcrExtractionResponse = z.infer<typeof ocrExtractionResponseSchema>;
 export type Problem = z.infer<typeof problemSchema>;
 export type Subject = z.infer<typeof subjectSchema>;
 export type OutputKind = z.infer<typeof outputKindSchema>;

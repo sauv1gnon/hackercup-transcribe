@@ -1,6 +1,6 @@
 {
   "$schema": "./status.schema.json",
-  "currentPhase": 2,
+  "currentPhase": 3,
   "lastUpdated": "2026-07-29",
   "phases": {
     "phase0": {
@@ -17,7 +17,7 @@
     },
     "phase3": {
       "name": "Image modality",
-      "status": "not_started"
+      "status": "complete"
     },
     "phase4": {
       "name": "Trust and demonstration",

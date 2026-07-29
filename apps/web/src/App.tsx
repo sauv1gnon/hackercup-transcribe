@@ -6,9 +6,9 @@ import type {
   LocalisationResponse,
   Subject,
 } from '@salinaral/contracts';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 
-import { ApiError, createLocalisation, listLanguages } from './api.js';
+import { ApiError, createLocalisation, extractTextFromImage, listLanguages } from './api.js';
 
 const initialLanguages: Language[] = [
   { code: 'en', name: 'English', source: true, target: true, status: 'experimental' },
@@ -64,7 +64,10 @@ export function App(): React.JSX.Element {
   const [teacherEdited, setTeacherEdited] = useState(false);
   const [error, setError] = useState<string>();
   const [languageNotice, setLanguageNotice] = useState<string>();
+  const [ocrNotice, setOcrNotice] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -96,6 +99,38 @@ export function App(): React.JSX.Element {
     [languages, sourceLanguage],
   );
   const characterCount = [...text].length;
+
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const nextFile = event.target.files?.[0] ?? null;
+    setSelectedFile(nextFile);
+    setOcrNotice(undefined);
+  }
+
+  async function handleImageExtract(): Promise<void> {
+    if (selectedFile === null) {
+      setError('Choose a JPEG, PNG, or WebP image to extract text.');
+      return;
+    }
+
+    setError(undefined);
+    setIsExtracting(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const response = await extractTextFromImage(formData);
+      setText(response.extractedText);
+      setOcrNotice(response.reviewRequired ? 'The extracted text is ready for your review.' : undefined);
+    } catch (caught: unknown) {
+      if (caught instanceof ApiError) {
+        setError(caught.message);
+      } else {
+        setError('The image could not be processed. Please try again.');
+      }
+    } finally {
+      setIsExtracting(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -316,6 +351,19 @@ export function App(): React.JSX.Element {
               aria-describedby="character-count"
               aria-invalid={error !== undefined}
             />
+            <div className="section-heading">
+              <h3>Extract from one worksheet image</h3>
+              <p>Upload a JPEG, PNG, or WebP photo and review the OCR text before localising it.</p>
+            </div>
+            <label className="text-label" htmlFor="lesson-image">
+              Worksheet image
+            </label>
+            <input
+              id="lesson-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageUpload}
+            />
             <div className="form-footer">
               <span
                 id="character-count"
@@ -325,10 +373,20 @@ export function App(): React.JSX.Element {
               >
                 {characterCount.toLocaleString()} / 20,000 characters
               </span>
-              <button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Preparing teaching pack…' : 'Prepare teaching pack'}
-              </button>
+              <div className="action-row">
+                <button type="button" onClick={() => { void handleImageExtract(); }} disabled={isExtracting}>
+                  {isExtracting ? 'Extracting…' : 'Extract text from image'}
+                </button>
+                <button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Preparing teaching pack…' : 'Prepare teaching pack'}
+                </button>
+              </div>
             </div>
+            {ocrNotice === undefined ? null : (
+              <p className="notice" role="status">
+                {ocrNotice}
+              </p>
+            )}
             {error === undefined ? null : (
               <p className="error-message" role="alert">
                 <strong>Draft not prepared.</strong> {error}

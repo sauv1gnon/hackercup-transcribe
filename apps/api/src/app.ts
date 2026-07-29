@@ -1,9 +1,11 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import { LocaliseLesson, ProviderFailure } from '@salinaral/application';
+import { ExtractTextFromImage, LocaliseLesson, ProviderFailure } from '@salinaral/application';
 import {
   localisationRequestSchema,
+  ocrExtractionResponseSchema,
   type LocalisationResponse,
   type Problem,
 } from '@salinaral/contracts';
@@ -11,12 +13,14 @@ import { createTranslationRequest, DomainError, supportedLanguages } from '@sali
 import {
   ConsoleOperationalLogger,
   GoogleTranslationProvider,
+  GoogleVisionOcrAdapter,
   OpenAIEducationAdapter,
   type OperationalEvent,
   type OperationalLogger,
   type RuntimeConfig,
 } from '@salinaral/infrastructure';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
+import { imageSize } from 'image-size';
 import { randomUUID } from 'node:crypto';
 
 function requestId(): string {
@@ -138,6 +142,14 @@ export async function buildApp(
     genReqId: requestId,
   });
 
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024,
+      files: 1,
+      parts: 3,
+    },
+  });
+
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -174,9 +186,11 @@ export async function buildApp(
       requestId: request.id,
       operation: routeUrl.includes('localisations')
         ? 'localisation'
-        : routeUrl.includes('languages')
-          ? 'languages'
-          : 'health',
+        : routeUrl.includes('ocr')
+          ? 'ocr'
+          : routeUrl.includes('languages')
+            ? 'languages'
+            : 'health',
       duration: 0,
       resultCategory: status === 429 ? 'rate_limited' : 'internal_error',
       httpStatus: status,
@@ -221,6 +235,7 @@ export async function buildApp(
     new GoogleTranslationProvider(config.googleCloudProject, config.googleCloudLocation),
     new OpenAIEducationAdapter(config.openAiApiKey),
   );
+  const extractTextFromImage = new ExtractTextFromImage(new GoogleVisionOcrAdapter());
 
   app.post(
     '/api/v1/localisations',
@@ -364,6 +379,87 @@ export async function buildApp(
       }
     },
   );
+
+  app.post('/api/v1/ocr/extractions', async (request, reply) => {
+    const started = performance.now();
+    reply.header('X-Request-Id', request.id);
+
+    const file = await request.file();
+    if (file === undefined) {
+      const problem = createProblem(
+        request.id,
+        400,
+        'invalid-request',
+        'Check the image upload',
+        'Select one JPEG, PNG, or WebP image to extract text.',
+      );
+      record(logger, {
+        severity: 'warn',
+        requestId: request.id,
+        operation: 'ocr',
+        duration: Math.round(performance.now() - started),
+        resultCategory: 'invalid_request',
+        httpStatus: 400,
+      });
+      sendProblem(reply, problem);
+      return;
+    }
+
+    try {
+      const buffer = await file.toBuffer();
+      const dimensions = imageSize(buffer);
+      const result = await extractTextFromImage.execute({
+        buffer,
+        fileName: file.filename ?? 'uploaded-image',
+        mimeType: file.mimetype ?? 'application/octet-stream',
+        sizeBytes: buffer.length,
+        width: dimensions.width ?? 0,
+        height: dimensions.height ?? 0,
+      });
+
+      const response = {
+        requestId: request.id,
+        extractedText: result.extractedText,
+        reviewRequired: result.reviewRequired,
+        reviewCues: result.reviewCues,
+        warnings: result.warnings,
+      };
+      const parsed = ocrExtractionResponseSchema.safeParse(response);
+      if (!parsed.success) {
+        throw new Error('ocr-response-validation-failed');
+      }
+      record(logger, {
+        severity: 'info',
+        requestId: request.id,
+        operation: 'ocr',
+        duration: Math.round(performance.now() - started),
+        resultCategory: 'success',
+        httpStatus: 200,
+      });
+      return response;
+    } catch (error: unknown) {
+      if (error instanceof DomainError) {
+        const problem = createProblem(
+          request.id,
+          422,
+          'unsafe-image',
+          'Image cannot be processed',
+          'Use one valid JPEG, PNG, or WebP image within the documented limits.',
+        );
+        record(logger, {
+          severity: 'warn',
+          requestId: request.id,
+          operation: 'ocr',
+          duration: Math.round(performance.now() - started),
+          resultCategory: error.code,
+          httpStatus: 422,
+        });
+        sendProblem(reply, problem);
+        return;
+      }
+      throw error;
+    }
+  });
 
   return app;
 }
