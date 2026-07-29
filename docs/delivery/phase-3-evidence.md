@@ -25,6 +25,6 @@
 - `npm run check` covers phase gating, formatting, linting, strict types, tests, OpenAPI linting,
   and secret scanning.
 
-Live-provider checks remain opt-in and are not part of deterministic CI. Before a public release,
-confirm that the runtime service identity can call the Vision API and exercise one representative
-worksheet photo; this does not change the implemented Phase 3 contract.
+Live-provider checks remain opt-in and are not part of deterministic CI. The Phase 3 rollout proved
+that the runtime service identity can call the Vision API with a generated, non-private PNG. See
+`phase-3-deployment-evidence.md` for the deployment and targeted validation record.
