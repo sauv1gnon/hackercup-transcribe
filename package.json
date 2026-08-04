@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@redocly/cli": "2.41.1",
+    "@redocly/cli": "2.43.2",
     "@secretlint/secretlint-rule-preset-recommend": "13.0.4",
     "@types/node": "24.13.3",
     "ajv": "8.20.0",
