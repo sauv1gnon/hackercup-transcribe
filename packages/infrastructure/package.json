@@ -11,7 +11,7 @@
     "@salinaral/application": "0.1.0",
     "@salinaral/domain": "0.1.0",
     "google-auth-library": "10.9.1",
-    "openai": "7.1.0",
+    "openai": "7.3.0",
     "sharp": "0.35.3",
     "zod": "4.4.3"
   }
